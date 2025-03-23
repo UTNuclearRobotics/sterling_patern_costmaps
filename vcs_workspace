@@ -1,0 +1,29 @@
+repositories:
+  depthai-ros:
+    type: git
+    url: git@github.com:UTNuclearRobotics/depthai-ros.git
+    version: e104466be117b9094553001b73419ebcb4cca1ec
+  husarion_ugv_ros:
+    type: git
+    url: git@github.com:UTNuclearRobotics/husarion_ugv_ros.git
+    version: b1aa62f7160b9a3765ef360eae9a5779e73bda95
+  ros_components_description:
+    type: git
+    url: git@github.com:UTNuclearRobotics/ros_components_description.git
+    version: b33b2655241e1aa123fd8c2de0b5b7d0310e36f2
+  sterling_gazebo:
+    type: git
+    url: git@github.com:UTNuclearRobotics/sterling_gazebo.git
+    version: 4587418f4489e489a2508555b2a9759d2db997b5
+  sterling_sim_docker:
+    type: git
+    url: git@github.com:UTNuclearRobotics/sterling_sim_docker.git
+    version: f3094ad077aa10c042e0e76e81069ea4213a8d97
+  utexas_panther_accessories:
+    type: git
+    url: git@github.com:UTNuclearRobotics/utexas_panther_accessories.git
+    version: 424e22e076f77b68cc5eeb0fd885f81dc7fab959
+  utexas_sterling:
+    type: git
+    url: git@github.com:UTNuclearRobotics/utexas_sterling.git
+    version: 3783ba21f19fe50b3ee4e64095d6c18b769505fd
