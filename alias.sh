@@ -8,7 +8,7 @@ alias run_gazebo_high='ros2 launch sterling_gazebo sidewalks.launch.py res:=high
 # Step 2: Launch Nav2
 # Sterling parameters
 #alias run_nav2='ros2 launch husarion_nav2 navigation2_bringup.launch.py use_rviz:=True use_sim_time:=True nav2_config_file_slam:=/root/ros2_ws/src/sterling/config/nav2_params.yaml'
-alias run_nav2='ros2 launch utexas_panther bringup_launch.py namespace:=panther observation_topic:=ouster/scan observation_topic_type:=laserscan slam:=true use_sim_time:=true nav2_config_file_slam:=/root/ros2_ws/src/sterling/config/nav2_params.yaml'
+alias run_nav2='ros2 launch utexas_panther bringup_launch.py namespace:=panther observation_topic:=panther/ouster/scan observation_topic_type:=laserscan slam:=true use_sim_time:=true params_file:=/root/ros2_ws/src/sterling/config/nav2_params.yaml'
 # Default parameters, when want to collect rosbag data
 alias run_nav2_default='ros2 launch husarion_nav2 navigation2_bringup.launch.py use_rviz:=True use_sim_time:=True'
 

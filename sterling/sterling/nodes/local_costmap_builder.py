@@ -15,10 +15,10 @@ class LocalCostmapBuilder(Node):
         super().__init__("local_costmap_builder")
 
         # Declare parameters with default values
-        self.declare_parameter("camera_topic", "/oakd2/oak_d_node/rgb/image_rect_color")
-        self.declare_parameter("local_costmap_topic", "/local_costmap/costmap")
-        self.declare_parameter("terrain_representation_model", "path/to/terrain_representation_model.pt")
-        self.declare_parameter("kmeans_model", "/path/to/kmeans_model.pkl")
+        self.declare_parameter("camera_topic", "/panther/oakd2/oak_d_node/rgb/image_rect_color")
+        self.declare_parameter("local_costmap_topic", "/panther/local_costmap/costmap")
+        self.declare_parameter("terrain_representation_model", "/root/ros2_ws/src/sterling/models/0228_sim_low_terrain_rep.pt")
+        self.declare_parameter("kmeans_model", "/root/ros2_ws/src/sterling/models/0228_sim_low_kmeans.pkl")
         self.declare_parameter("terrain_preferences", [0])
         self.declare_parameter("homography_matrix", [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0])
         self.declare_parameter("patch_size_px", 128)
@@ -79,7 +79,8 @@ class LocalCostmapBuilder(Node):
         
         # Lookup transform from base_link to get orientation
         try:
-            transform = self.tf_buffer.lookup_transform("base_link", "map", rclpy.time.Time())
+            transform = self.tf_buffer.lookup_transform("panther/base_link", "panther/map", rclpy.time.Time())
+            self.get_logger().error(str(transform.transform.rotation))
             self.yaw_angle = LocalCostmapHelper.quarternion_to_euler(transform.transform.rotation)
             # self.get_logger().info(f"Yaw angle: {np.degrees(yaw_angle)}")
         except Exception as e:
@@ -96,11 +97,11 @@ class LocalCostmapBuilder(Node):
         Use the rolling window of the local costmap to stitch the terrain preferred local costmap.
         """
         if not self.camera_msg or not self.yaw_angle or not self.occupany_grid_msg:
-            if self.camera_msg is None:
+            if not self.camera_msg:
                 self.get_logger().info("Camera message is None")
-            if self.yaw_angle is None:
+            if not self.yaw_angle:
                 self.get_logger().info("Yaw angle is None")
-            if self.occupany_grid_msg is None:
+            if not self.occupany_grid_msg:
                 self.get_logger().info("Occupancy grid message is None")
             self.get_logger().info("Waiting for camera and occupancy grid message...")
             return

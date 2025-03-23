@@ -6,7 +6,7 @@ import os
 
 def generate_launch_description():
     params_file = os.path.join(get_package_share_directory("sterling"), "config", "params.yaml")
-    namespace = "sterling" # Namespaced so topics have namespace/node_name or namespace/topic_name
+    namespace = "panther/sterling" # Namespaced so topics have namespace/node_name or namespace/topic_name
 
     return LaunchDescription(
         [

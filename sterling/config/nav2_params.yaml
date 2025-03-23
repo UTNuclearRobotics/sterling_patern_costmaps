@@ -1,4 +1,4 @@
-slam_toolbox:
+<namespace>/slam_toolbox:
   ros__parameters:
 
     # Plugin params
@@ -10,10 +10,10 @@ slam_toolbox:
     ceres_loss_function: None #HuberLoss
 
     # ROS Parameters
-    odom_frame: odom
-    map_frame: map
-    base_frame: base_link
-    scan_topic: /ouster/scan
+    odom_frame: <namespace>/odom
+    map_frame: <namespace>/map
+    base_frame: <namespace>/base_link
+    scan_topic: <scan_topic>
     mode: mapping #localization
 
     debug_logging: false
@@ -71,13 +71,14 @@ slam_toolbox:
 bt_navigator:
   ros__parameters:
     use_sim_time: False
-    global_frame: map
-    robot_base_frame: base_link
+    global_frame: <namespace>/map
+    robot_base_frame: <namespace>/base_link
     enable_groot_monitoring: True
     groot_zmq_publisher_port: 1666
     groot_zmq_server_port: 1667
     default_bt_xml_filename: "default_bt_xml_filename"
     plugin_lib_names:
+    - is_estop
     - nav2_compute_path_to_pose_action_bt_node
     - nav2_follow_path_action_bt_node
     - nav2_back_up_action_bt_node
@@ -107,14 +108,21 @@ bt_navigator_rclcpp_node:
   ros__parameters:
     use_sim_time: False
 
+bt_navigator_navigate_through_poses_rclcpp_node:
+  ros__parameters:
+    use_sim_time: false
+
+bt_navigator_navigate_to_pose_rclcpp_node:
+  ros__parameters:
+    use_sim_time: false
 
 controller_server:
   ros__parameters:
     use_sim_time: False
     controller_frequency: 10.0
-    min_x_velocity_threshold: 0.001
-    min_y_velocity_threshold: 0.5
-    min_theta_velocity_threshold: 0.001
+    min_x_velocity_threshold: 0.01
+    min_y_velocity_threshold: 0.01
+    min_theta_velocity_threshold: 0.05
     progress_checker_plugin: "progress_checker"
     goal_checker_plugin: "goal_checker"
     controller_plugins: ["FollowPath"]
@@ -181,8 +189,8 @@ local_costmap:
     ros__parameters:
       update_frequency: 5.0
       publish_frequency: 2.0
-      global_frame: map
-      robot_base_frame: base_link
+      global_frame: <namespace>/map
+      robot_base_frame: <namespace>/base_link
       lethal_cost_threshold: 100
       trinary_costmap: False  # Enable gradient costs
       # Change rate of trinary decay
@@ -192,7 +200,7 @@ local_costmap:
       width: 6
       height: 6
       resolution: 0.05
-      footprint: '[[0.420, 0.4025], [0.420, -0.4025], [-0.420, -0.4025], [-0.420, 0.4025]]'
+      footprint: '[[0.45, 0.47], [0.45, -0.47], [-0.45, -0.47], [-0.45, 0.47]]'
       # Sterling layer should be last, we don't want inflation to affect it
       plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
       # plugins: ["static_layer", "sterling_layer"]
@@ -203,14 +211,14 @@ local_costmap:
       sterling_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         enabled: True
-        map_topic: "/sterling/local_costmap"
+        map_topic: "/<namespace>/sterling/local_costmap"
         map_subscribe_transient_local: false
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: True
         observation_sources: scan
         scan:
-          topic: /ouster/scan
+          topic: <observation_topic>
           max_obstacle_height: 2.0
           clearing: True
           marking: True
@@ -257,8 +265,8 @@ global_costmap:
     ros__parameters:
       update_frequency: 1.0
       publish_frequency: 1.0
-      global_frame: map
-      robot_base_frame: base_link
+      global_frame: <namespace>/map
+      robot_base_frame: <namespace>/base_link
       use_sim_time: False
       trinary_costmap: False  # Enable gradient costs
       use_maximum: True
@@ -269,19 +277,19 @@ global_costmap:
       sterling_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         enabled: True
-        map_topic: "/sterling/global_costmap"
+        map_topic: "/<namespace>/sterling/global_costmap"
         map_subscribe_transient_local: True
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         enabled: True
-        map_topic: "/map"
+        map_topic: "/<namespace>/map"
         map_subscribe_transient_local: True
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: True
         observation_sources: scan
         scan:
-          topic: /ouster/scan
+          topic: <observation_topic>
           max_obstacle_height: 2.0
           clearing: True
           marking: True
@@ -364,8 +372,8 @@ robot_state_publisher:
 
 recoveries_server:
   ros__parameters:
-    costmap_topic: local_costmap/costmap_raw
-    footprint_topic: local_costmap/published_footprint
+    costmap_topic: <namespace>/local_costmap/costmap_raw
+    footprint_topic: <namespace>/local_costmap/published_footprint
     cycle_frequency: 10.0
     recovery_plugins: ["spin", "backup", "wait"]
     spin:
@@ -374,8 +382,8 @@ recoveries_server:
       plugin: "nav2_recoveries/BackUp"
     wait:
       plugin: "nav2_recoveries/Wait"
-    global_frame: odom
-    robot_base_frame: base_link
+    global_frame: <namespace>/odom
+    robot_base_frame: <namespace>/base_link
     transform_timeout: 0.1
     use_sim_time: False
     simulate_ahead_time: 2.0
@@ -392,3 +400,32 @@ waypoint_follower:
       plugin: "nav2_waypoint_follower::WaitAtWaypoint"
       enabled: True
       waypoint_pause_duration: 200
+
+### MAP SERVER ###
+
+map_server:
+  ros__parameters:
+    use_sim_time: false
+    yaml_filename: map.yaml
+    frame_id: <namespace>/map
+
+map_autosaver:
+  ros__parameters:
+    use_sim_time: false
+    autosave_period: 15.0
+    map_directory: /map
+
+velocity_smoother:
+  ros__parameters:
+    use_sim_time: True
+    smoothing_frequency: 20.0
+    scale_velocities: False
+    feedback: OPEN_LOOP
+    max_velocity: [0.8, 0.0, 1.0]
+    min_velocity: [-0.5, 0.0, -1.0]
+    max_accel: [1.5, 0.0, 2.0]
+    max_decel: [-1.5, 0.0, -2.0]
+    odom_topic: odometry/filtered
+    odom_duration: 0.1
+    deadband_velocity: [0.0, 0.0, 0.0]
+    velocity_timeout: 1.0
