@@ -1,7 +1,7 @@
 # Run the Docker Container
 
 ## Build
-Source the alias to run Docker commands. Build the Docker image. (Make sure you copy your private SSH key and place it as `id_rsa` in the top level of this repository.) 
+Source the alias to run Docker commands. Build the Docker image. (Make sure you copy your private SSH key and place it as `id_rsa` in the top level of this repository. It will be temporarily copied into the container to clone private repositories.) 
 ```
 source bash_utils
 sterling_build
