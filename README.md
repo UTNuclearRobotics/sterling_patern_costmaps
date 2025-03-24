@@ -1,7 +1,7 @@
 # Run the Docker Container
 
 ## Build
-Source the alias to run Docker commands. Build the Docker image.
+Source the alias to run Docker commands. Build the Docker image. (Make sure you copy your private SSH key and place it as `id_rsa` in the top level of this repository.) 
 ```
 source bash_utils
 sterling_build
@@ -36,7 +36,7 @@ run_nav2
 ```
 
 # Sterling-Patern Deploy Costmaps
-To deploy Sterling-Patern, make sure you setup the `params.yaml` with the correct paths to trained models and topic names and run the command:
+To deploy Sterling-Patern, make sure you setup the `params.yaml` with the correct paths to trained models (you may have to grab from UT Box) and topic names and run the command:
 ```
 run_sterling_costmap
 ```
