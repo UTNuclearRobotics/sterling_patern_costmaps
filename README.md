@@ -1,31 +1,50 @@
-# Pre-requisites
-Install these ROS packages  
-```
-ros-${ROS_DISTRO}-cyclonedds
-ros-${ROS_DISTRO}-rmw-cyclonedds-cpp
-```
+# Run the Docker Container
 
-# Bash Commands
+## Build
+Source the alias to run Docker commands. Build the Docker image.
 ```
 source bash_utils
 sterling_build
-sterling_start
-sterling_shell
 ```
 
+## Start
+Start the Docker container
+```
+sterling_start
+```
+
+## Shell
+Open a command shell inside the Docker container
+```
+sterling_shell
+```
+Here you will run all the following commands inside the container.
+
+# Gazebo Simulation
+You can choose the resolution of simulation you'd liked to run:
+```
+run_gazebo_low
+run_gazebo_medium
+run_gazebo_high
+```
+This should bring up a window of the Husarion Panther in a boxed in area with terrain regions and a U-shaped sidewalk.
+
+# Nav2
+To launch the navigation stack for the Husarion Panther:
+```
+run_nav2
+```
+
+# Sterling-Patern Deploy Costmaps
+To deploy Sterling-Patern, make sure you setup the `params.yaml` with the correct paths to trained models and topic names and run the command:
+```
+run_sterling_costmap
+```
+To see the costmaps on RViz, change the map topic to `/sterling/local_costmap/costmap` or `/sterling/global_costmap/costmap`. 
+
 # Recording Data
+If you want to record bag data, you can run this script. It'd recommend running it outside of the container for easy access but it doesn't matter.
 ```
 record_bag_sim.sh
 ```
 
-# Running Nav
-```
-run_gazebo_high
-run_gazebo_low
-run_nav2
-
-ros2 launch sterling_gazebo sidewalks.launch.py high_res:=True
-ros2 launch husarion_nav2 navigation2_bringup.launch.py use_rviz:=True use_sim_time:=True
-
-ros2 launch husarion_nav2 navigation2_bringup.launch.py use_rviz:=True use_sim_time:=True nav2_config_file_slam:=/root/sterling/config/nav2_params.yaml
-```
