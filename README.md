@@ -36,8 +36,9 @@ run_nav2
 ```
 
 # Sterling-Patern Deploy Costmaps
-To deploy Sterling-Patern, make sure you setup the `params.yaml` with the correct paths to trained models (you may have to grab from UT Box) and topic names and run the command:
+A volume is setup to have `/sterling` inside `/ros2_ws/src` in the container. To deploy Sterling-Patern, build the workspace,setup the `params.yaml` with the correct paths to trained models (you may have to grab from UT Box), and topic names and run the command:
 ```
+colcon build
 run_sterling_costmap
 ```
 To see the costmaps on RViz, change the map topic to `/sterling/local_costmap/costmap` or `/sterling/global_costmap/costmap`. 
