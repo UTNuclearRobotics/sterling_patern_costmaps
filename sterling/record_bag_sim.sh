@@ -1,7 +1,7 @@
 source /opt/ros/humble/setup.bash
 
 BAG_NAME="panther_sim_recording_$(date +%Y%m%d_%H%M%S)"
-BAG_PATH="bags/$BAG_NAME"
+BAG_PATH="$(pwd)/$BAG_NAME"
 echo "Recording bag file..."
 echo "Outputting bag to ${BAG_PATH}"
 

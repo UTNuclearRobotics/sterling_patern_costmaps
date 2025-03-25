@@ -43,7 +43,7 @@ run_sterling_costmap
 To see the costmaps on RViz, change the map topic to `/sterling/local_costmap/costmap` or `/sterling/global_costmap/costmap`. 
 
 # Recording Data
-If you want to record bag data, you can run this script. It'd recommend running it outside of the container for easy access but it doesn't matter.
+If you want to record bag data, you can run this script. It'd recommend running it outside of the container for easy access to the bag. The bag will be saved in the directory you run this script.  
 ```
 record_bag_sim.sh
 ```
