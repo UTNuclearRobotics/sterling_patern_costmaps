@@ -37,7 +37,20 @@ RUN apt install -y \
     ros-${ROS_DISTRO}-navigation2 \
     ros-${ROS_DISTRO}-nav2-bringup
 
-RUN pip install inflection rdflib wrapt termcolor tqdm
+RUN pip install \
+    inflection \
+    rdflib \
+    wrapt \
+    termcolor \
+    tqdm \
+    opencv-python \
+    numpy \
+    joblib \
+    scikit-learn \
+    torch \
+    pyyaml \
+    tensorflow \
+    torchvision
 
 RUN sudo apt-get update
 RUN sudo apt-get install lsb-release gnupg
@@ -90,17 +103,6 @@ RUN git clone git@github.com:UTNuclearRobotics/ros_components_description.git \
 
 # Remove the private SSH key after cloning the repositories
 RUN rm /root/.ssh/id_rsa
-
-# Sterling dependencies
-RUN pip install \
-    opencv-python \
-    numpy \
-    joblib \
-    scikit-learn \
-    torch \
-    pyyaml \
-    tensorflow \
-    torchvision
 
 # Install deps
 WORKDIR /root/dependency_ws
