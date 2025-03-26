@@ -11,19 +11,25 @@ from sterling.bev_costmap import BEVCostmap
 
 
 class LocalCostmapBuilder(Node):
+    """
+    This class integrates camera images and local costmap data to generate a terrain-preferred
+    local costmap. It subscribes to camera and occupancy grid topics, processes the data using a homography matrix and 
+    a terrain representation model, and publishes the updated costmap.
+    """    
+    
     def __init__(self):
         super().__init__("local_costmap_builder")
 
         # Declare parameters with default values
-        self.declare_parameter("sub_topic_camera", "/oakd2/oak_d_node/rgb/image_rect_color")
-        self.declare_parameter("sub_topic_local_costmap", "/local_costmap/costmap")
-        self.declare_parameter("model_path", "path/to/terrain_representation_model.pt")
+        self.declare_parameter("sub_topic_camera", "/camera/topic")
+        self.declare_parameter("sub_topic_local_costmap", "/local_costmap/topic")
+        self.declare_parameter("pub_topic_local_costmap", "/local_costmap")
+        self.declare_parameter("pub_topic_local_costmap_hz", 1.0)
+        self.declare_parameter("model_path", "path/to/models")
         self.declare_parameter("homography_matrix", [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0])
         self.declare_parameter("patch_size_px", 128)
         self.declare_parameter("patch_size_m", 0.23)
         self.declare_parameter("base_link_offset_m", 1.4)
-        self.declare_parameter("hz", 1.0)
-        self.declare_parameter("output_costmap_topic", "/local_costmap")
 
         # Get parameter values
         self.sub_topic_camera = self.get_parameter("sub_topic_camera").value
@@ -33,19 +39,19 @@ class LocalCostmapBuilder(Node):
         self.patch_size_px = self.get_parameter("patch_size_px").value
         self.patch_size_m = self.get_parameter("patch_size_m").value
         self.base_link_offset_m = self.get_parameter("base_link_offset_m").value
-        self.hz = self.get_parameter("hz").value
-        self.output_costmap_topic = self.get_parameter("output_costmap_topic").value
+        self.pub_topic_local_costmap_hz = self.get_parameter("pub_topic_local_costmap_hz").value
+        self.pub_topic_local_costmap = self.get_parameter("pub_topic_local_costmap").value
 
         # Print parameter values
-        self.get_logger().debug(f"Camera topic: {self.sub_topic_camera}")
-        self.get_logger().debug(f"Local costmap topic: {self.sub_topic_local_costmap}")
+        self.get_logger().debug(f"Subscription camera topic: {self.sub_topic_camera}")
+        self.get_logger().debug(f"Subscription local costmap topic: {self.sub_topic_local_costmap}")
+        self.get_logger().debug(f"Publication local costmap topic: {self.pub_topic_local_costmap}")
+        self.get_logger().debug(f"Publication local costmap frequency: {self.pub_topic_local_costmap_hz} Hz")
         self.get_logger().debug(f"Model path: {model_path}")
         self.get_logger().debug(f"Homography matrix: \n{self.H}")
         self.get_logger().debug(f"Patch size (px): {self.patch_size_px}")
         self.get_logger().debug(f"Patch size (m): {self.patch_size_m}")
         self.get_logger().debug(f"Base link offset (m): {self.base_link_offset_m}")
-        self.get_logger().debug(f"Local costmap publisher frequency: {self.hz}")
-        self.get_logger().debug(f"Output costmap topic: {self.output_costmap_topic}")
 
         # Subscribers
         self.camera_subscriber = self.create_subscription(Image, self.sub_topic_camera, self.camera_callback, 10)
@@ -54,10 +60,10 @@ class LocalCostmapBuilder(Node):
         )
 
         # Publishers
-        self.sterling_costmap_publisher = self.create_publisher(OccupancyGrid, self.output_costmap_topic, 10)
+        self.sterling_costmap_publisher = self.create_publisher(OccupancyGrid, self.pub_topic_local_costmap, 10)
 
         # Timers
-        self.timer = self.create_timer(self.hz, self.update_costmap)
+        self.timer = self.create_timer(self.pub_topic_local_costmap_hz, self.update_costmap)
 
         # Initialize tf buffer and listener
         self.tf_buffer = Buffer()
@@ -74,12 +80,16 @@ class LocalCostmapBuilder(Node):
 
     def camera_callback(self, msg):
         """
-        Callback function for the camera subscriber.
+        Callback function for processing incoming camera image messages.
+
+        This function is triggered whenever a new image message is received from the camera subscriber.
+        It stores the received image message and attempts to compute the yaw angle of the robot by 
+        looking up the transform between the "base_link" and "map" frames.
+
         Args:
-            msg: Image message
-        Returns:
-            None
+            msg (sensor_msgs.msg.Image): The incoming image message from the camera.
         """
+
         self.camera_msg = msg
 
         # Lookup transform from base_link to get orientation
@@ -93,24 +103,29 @@ class LocalCostmapBuilder(Node):
 
     def costmap_callback(self, msg):
         """
-        Callback function for the local costmap subscriber.
+        Handles incoming OccupancyGrid messages and initializes the LocalCostmapHelper if not already set.
+
+        This method is a callback function for the local costmap subscriber. It processes
+        the incoming OccupancyGrid message and updates the local costmap helper object
+        with the grid's resolution, width, and height if it has not been initialized yet.
+        The received message is stored for further use.
+
         Args:
-            msg: OccupancyGrid message
-        Returns:
-            None
+            msg (OccupancyGrid): The incoming OccupancyGrid message containing
+                                 information about the local costmap.
         """
+        
         if self.LocalCostmapHelper is None:
             self.LocalCostmapHelper = LocalCostmapHelper(msg.info.resolution, msg.info.width, msg.info.height)
         self.occupany_grid_msg = msg
 
     def update_costmap(self):
         """
-        Pastes the BEV cost into the local costmap and publishes the topic.
-        Args:
-            None
-        Returns:
-            None
+        Updates the local costmap using camera data, yaw angle, and occupancy grid message.
+        This function is dynamically updates the robot's local costmap with terrain-preferred costs
+        based on real-time camera data and orientation.
         """
+    
         if not self.camera_msg or not self.yaw_angle or not self.occupany_grid_msg:
             if self.camera_msg is None:
                 self.get_logger().debug("Camera message is None")

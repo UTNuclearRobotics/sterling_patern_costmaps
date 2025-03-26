@@ -20,33 +20,36 @@ qos_profile = QoSProfile(
 
 class GlobalCostmapBuilder(Node):
     """
-    Listens to the global costmap know origin and when to resize the map.
-    The only values being placed onto the global costamp are stitched sterling local costmaps.
-
-    Requires local_costmap, global_costmap, and slam_toolbox map resolutions to be the same.
+    This class is responsible for managing and building a global costmap by stitching together 
+    local costmaps. It listens to topics for local and global costmaps, processes the incoming 
+    data, and publishes an updated global costmap. Additionally, it provides a service to save 
+    the global costmap to a file.
     """
 
     def __init__(self):
         super().__init__("global_costmap_builder")
 
         # Declare and get parameters
-        self.declare_parameter("local_costmap_topic", "/local_costmap/costmap")
-        self.declare_parameter("global_costmap_topic", "/global_costmap/costmap")
+        self.declare_parameter("sub_topic_local_costmap", "/local_costmap/costmap")
+        self.declare_parameter("sub_topic_global_costmap", "/global_costmap/costmap")
+        self.declare_parameter("pub_topic_global_costmap", "global_costmap")
         self.declare_parameter("use_maximum", False)
 
-        self.local_costmap_topic = self.get_parameter("local_costmap_topic").value
-        self.global_costmap_topic = self.get_parameter("global_costmap_topic").value
+        self.sub_topic_local_costmap = self.get_parameter("sub_topic_local_costmap").value
+        self.sub_topic_global_costmap = self.get_parameter("sub_topic_global_costmap").value
+        self.pub_topic_global_costmap = self.get_parameter("pub_topic_global_costmap").value
         self.use_maximum = self.get_parameter("use_maximum").value
 
         # Print parameter values
-        self.get_logger().debug(f"Local costmap topic: {self.local_costmap_topic}")
-        self.get_logger().debug(f"Global costmap topic: {self.global_costmap_topic}")
+        self.get_logger().debug(f"Subscription local costmap topic: {self.sub_topic_local_costmap}")
+        self.get_logger().debug(f"Subscription global costmap topic: {self.sub_topic_global_costmap}")
+        self.get_logger().debug(f"Publication global costmap topic: {self.sub_topic_global_costmap}")
         self.get_logger().debug(f"Use maximum: {self.use_maximum}")
 
         # Subscribe to the local costmap
         self.create_subscription(
             OccupancyGrid,
-            self.local_costmap_topic,
+            self.sub_topic_local_costmap,
             self.stitch_local_publish_global,
             10,
         )
@@ -54,7 +57,7 @@ class GlobalCostmapBuilder(Node):
         # Subscribe to the global costmap
         self.create_subscription(
             OccupancyGrid,
-            self.global_costmap_topic,
+            self.sub_topic_global_costmap,
             self.global_costmap_callback,
             10,
         )
@@ -62,7 +65,7 @@ class GlobalCostmapBuilder(Node):
         # Publisher for the global costmap
         self.stitched_costmap_publisher = self.create_publisher(
             OccupancyGrid,
-            "global_costmap",
+            self.pub_topic_global_costmap,
             qos_profile=qos_profile,
         )
 
@@ -74,7 +77,18 @@ class GlobalCostmapBuilder(Node):
         self.update_msg = None
 
     def global_costmap_callback(self, msg):
-        """Callback for the global costmap."""
+        """
+        Callback function for processing the global costmap message.
+
+        This function is triggered when a new OccupancyGrid message is received. 
+        It updates the global costmap properties and initializes or resizes the 
+        stitched costmap as needed.
+
+        Args:
+            msg (OccupancyGrid): The incoming message containing the global costmap 
+                                 data, including resolution, dimensions, and origin.
+        """
+        
         self.global_msg = msg
         self.global_resolution = msg.info.resolution
         self.global_width = msg.info.width
@@ -102,9 +116,17 @@ class GlobalCostmapBuilder(Node):
 
     def stitch_local_publish_global(self, msg):
         """
-        Callback for subscribing to the local costmap topic.
-        Stitches latest local costmap to the global costmap.
+        Callback function for processing and integrating a local costmap into a global costmap.
+
+        This function subscribes to a local costmap topic, extracts the local costmap data, 
+        transforms it into the global costmap frame, and updates the global costmap by stitching 
+        the local costmap data into it. The updated global costmap is then published.
+
+        Args:
+            msg (OccupancyGrid): ROS message containing the local costmap data. It includes 
+                                 metadata such as resolution, origin, width, and height.
         """
+
         if self.stitched_costmap is None:
             self.get_logger().warn("Stitched costmap not yet initialized.")
             return
@@ -144,7 +166,15 @@ class GlobalCostmapBuilder(Node):
         self.stitched_costmap_publisher.publish(self.update_msg)
 
     def resize_stitched_costmap(self):
-        """Resize the stitched costmap to accommodate new data."""
+        """
+        Resizes the stitched global costmap to match the dimensions of the global costmap 
+        and accommodates new data while preserving existing data.
+
+        This function creates a new costmap grid with the updated dimensions, calculates 
+        the offset for the existing data, and copies the data from the old costmap to the 
+        new one. It then updates the stitched costmap properties and logs the resizing 
+        operation.
+        """
 
         # Create a new stitched costmap grid
         new_stitched_costmap = np.full((self.global_height, self.global_width), -1, dtype=np.int8)
@@ -172,7 +202,14 @@ class GlobalCostmapBuilder(Node):
         self.get_logger().info(f"Resized stitched costmap to {self.stitched_width}x{self.stitched_height}")
 
     def save_costmap_callback(self, request, response):
-        """Service callback to save the costmap to a file."""
+        """
+        Callback function for a service that saves the current costmap to a file.
+
+        This function is triggered by a service request and attempts to save the 
+        current costmap data to a PGM file along with its metadata in a YAML file. 
+        The files are stored in a directory named with the current timestamp.
+        """
+        
         if self.update_msg is None:
             response.success = False
             response.message = "No costmap data received yet."
@@ -203,7 +240,19 @@ class GlobalCostmapBuilder(Node):
 
     @staticmethod
     def save_costmap_to_pgm(costmap, filename):
-        """Save the costmap data to a PGM file."""
+        """
+        Saves a costmap represented as an OccupancyGrid message to a Portable Gray Map (PGM) file.
+
+        This function takes the costmap data, processes it into a 2D array, scales the values 
+        to the PGM grayscale range (0-255), and writes it to a PGM file. The PGM format is 
+        commonly used for representing grayscale images.
+
+        Args:
+            costmap (OccupancyGrid): The costmap data to be saved. It contains metadata such as 
+                                     width, height, and the occupancy grid values.
+            filename (str): The name of the output PGM file, including the file path.
+        """
+        
         # Convert the costmap data to a 2D array
         data = np.array(costmap.data, dtype=np.int8).reshape((costmap.info.height, costmap.info.width))
 
@@ -220,7 +269,18 @@ class GlobalCostmapBuilder(Node):
 
     @staticmethod
     def save_costmap_to_yaml(costmap, filename):
-        """Save the costmap metadata to a YAML file."""
+        """
+        Saves the metadata of a given costmap to a YAML file.
+
+        This function extracts metadata from an OccupancyGrid message and writes it 
+        to a YAML file. The metadata includes information such as the resolution, 
+        origin, and thresholds for occupied and free spaces.
+
+        Args:
+            costmap (OccupancyGrid): The costmap containing metadata to be saved.
+            filename (str): The name of the YAML file where the metadata will be saved.
+        """
+
         yaml_content = {
             "image": filename.replace(".yaml", ".pgm"),
             "resolution": costmap.info.resolution,

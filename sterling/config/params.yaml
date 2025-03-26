@@ -21,7 +21,7 @@ sterling: # Make sure namespace matches
 
   global_costmap_builder:
     ros__parameters:
-      local_costmap_topic: "/sterling/local_costmap"
-      global_costmap_topic: "/global_costmap/costmap"
+      sub_topic_local_costmap: "/sterling/local_costmap"
+      sub_topic_global_costmap: "/global_costmap/costmap"
       # True, if you want to keep maximum values of the costmap. False, if you want to override existing data.
       use_maximum: False
