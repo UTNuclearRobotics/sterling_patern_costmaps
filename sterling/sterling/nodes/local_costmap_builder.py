@@ -15,43 +15,49 @@ class LocalCostmapBuilder(Node):
         super().__init__("local_costmap_builder")
 
         # Declare parameters with default values
-        self.declare_parameter("camera_topic", "/oakd2/oak_d_node/rgb/image_rect_color")
-        self.declare_parameter("local_costmap_topic", "/local_costmap/costmap")
+        self.declare_parameter("sub_topic_camera", "/oakd2/oak_d_node/rgb/image_rect_color")
+        self.declare_parameter("sub_topic_local_costmap", "/local_costmap/costmap")
         self.declare_parameter("model_path", "path/to/terrain_representation_model.pt")
         self.declare_parameter("homography_matrix", [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0])
         self.declare_parameter("patch_size_px", 128)
         self.declare_parameter("patch_size_m", 0.23)
         self.declare_parameter("base_link_offset_m", 1.4)
+        self.declare_parameter("hz", 1.0)
+        self.declare_parameter("output_costmap_topic", "/local_costmap")
 
         # Get parameter values
-        self.camera_topic = self.get_parameter("camera_topic").value
-        self.local_costmap_topic = self.get_parameter("local_costmap_topic").value
+        self.sub_topic_camera = self.get_parameter("sub_topic_camera").value
+        self.sub_topic_local_costmap = self.get_parameter("sub_topic_local_costmap").value
         model_path = self.get_parameter("model_path").value
         self.H = np.array(self.get_parameter("homography_matrix").value).reshape(3, 3)
         self.patch_size_px = self.get_parameter("patch_size_px").value
         self.patch_size_m = self.get_parameter("patch_size_m").value
         self.base_link_offset_m = self.get_parameter("base_link_offset_m").value
+        self.hz = self.get_parameter("hz").value
+        self.output_costmap_topic = self.get_parameter("output_costmap_topic").value
 
         # Print parameter values
-        self.get_logger().debug(f"Camera topic: {self.camera_topic}")
-        self.get_logger().debug(f"Local costmap topic: {self.local_costmap_topic}")
+        self.get_logger().debug(f"Camera topic: {self.sub_topic_camera}")
+        self.get_logger().debug(f"Local costmap topic: {self.sub_topic_local_costmap}")
         self.get_logger().debug(f"Model path: {model_path}")
         self.get_logger().debug(f"Homography matrix: \n{self.H}")
         self.get_logger().debug(f"Patch size (px): {self.patch_size_px}")
         self.get_logger().debug(f"Patch size (m): {self.patch_size_m}")
         self.get_logger().debug(f"Base link offset (m): {self.base_link_offset_m}")
+        self.get_logger().debug(f"Local costmap publisher frequency: {self.hz}")
+        self.get_logger().debug(f"Output costmap topic: {self.output_costmap_topic}")
 
         # Subscribers
-        self.camera_subscriber = self.create_subscription(Image, self.camera_topic, self.camera_callback, 10)
+        self.camera_subscriber = self.create_subscription(Image, self.sub_topic_camera, self.camera_callback, 10)
         self.costmap_subscriber = self.create_subscription(
-            OccupancyGrid, self.local_costmap_topic, self.costmap_callback, 10
+            OccupancyGrid, self.sub_topic_local_costmap, self.costmap_callback, 10
         )
 
         # Publishers
-        self.sterling_costmap_publisher = self.create_publisher(OccupancyGrid, "local_costmap", 10)
+        self.sterling_costmap_publisher = self.create_publisher(OccupancyGrid, self.output_costmap_topic, 10)
 
         # Timers
-        self.timer = self.create_timer(1.0, self.update_costmap)
+        self.timer = self.create_timer(self.hz, self.update_costmap)
 
         # Initialize tf buffer and listener
         self.tf_buffer = Buffer()
@@ -67,6 +73,13 @@ class LocalCostmapBuilder(Node):
         self.occupany_grid_msg = None
 
     def camera_callback(self, msg):
+        """
+        Callback function for the camera subscriber.
+        Args:
+            msg: Image message
+        Returns:
+            None
+        """
         self.camera_msg = msg
 
         # Lookup transform from base_link to get orientation
@@ -79,13 +92,24 @@ class LocalCostmapBuilder(Node):
             return
 
     def costmap_callback(self, msg):
+        """
+        Callback function for the local costmap subscriber.
+        Args:
+            msg: OccupancyGrid message
+        Returns:
+            None
+        """
         if self.LocalCostmapHelper is None:
             self.LocalCostmapHelper = LocalCostmapHelper(msg.info.resolution, msg.info.width, msg.info.height)
         self.occupany_grid_msg = msg
 
     def update_costmap(self):
         """
-        Use the rolling window of the local costmap to stitch the terrain preferred local costmap.
+        Pastes the BEV cost into the local costmap and publishes the topic.
+        Args:
+            None
+        Returns:
+            None
         """
         if not self.camera_msg or not self.yaw_angle or not self.occupany_grid_msg:
             if self.camera_msg is None:
@@ -128,11 +152,6 @@ class LocalCostmapBuilder(Node):
         # Publish message
         self.sterling_costmap_publisher.publish(msg)
 
-        # Reset the buffers
-        # self.camera_msg = None
-        # self.yaw_angle = None
-        # self.occupany_grid_msg = None
-
 
 class LocalCostmapHelper:
     def __init__(self, resolution=0.05, width_cells=120, height_cells=120):
@@ -148,6 +167,16 @@ class LocalCostmapHelper:
         self.center_y = self.height_cells // 2  # 60 cells
 
     def set_costs_in_region(self, x_m, y_m, cell_size_m, terrain_costmap):
+        """
+        Upscale the BEV costs and paste it onto the correct region of the local costmap.
+        Args:
+            x_m: X coordinate in meters
+            y_m: Y coordinate in meters
+            cell_size_m: Cell size in meters
+            terrain_costmap: 2D numpy array
+        Returns:
+            1D numpy array of upscaled costs
+        """
         upscale_factor = int(cell_size_m / self.resolution)
 
         # Convert meters to cells
@@ -168,10 +197,8 @@ class LocalCostmapHelper:
     def upsample_2d_array(self, arr, factor, x_start, y_start):
         """
         Upsample a 2D array by a factor.
-
         Args:
             arr (list of list): The original 2D array.
-
         Returns:
             list of list: The upsampled 2D array.
         """
