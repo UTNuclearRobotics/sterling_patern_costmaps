@@ -72,8 +72,8 @@ RUN sudo apt-get install -y ignition-fortress
 RUN apt install -y ros-${ROS_DISTRO}-ign-ros2-control
 
 # Unsecurely put private SSH key in the image to clone private repos
-COPY id_ed25519 /root/.ssh/id_ed25519
-RUN chmod 600 /root/.ssh/id_ed25519
+COPY id_rsa /root/.ssh/id_rsa
+RUN chmod 600 /root/.ssh/id_rsa
 
 # Add GitHub's SSH host key to known_hosts
 RUN mkdir -p /root/.ssh && \
@@ -86,8 +86,6 @@ WORKDIR /root/dependency_ws/src
 
 RUN git clone -b humble https://github.com/BehaviorTree/BehaviorTree.ROS2.git
 RUN git clone -b ros2 https://github.com/husarion/panther_msgs.git
-#RUN git clone -b ros2-devel https://github.com/husarion/husarion_ugv_ros.git
-RUN git clone -b ros2 https://github.com/husarion/husarion_ugv_autonomy_ros.git
 RUN git clone -b ros2-devel https://github.com/husarion/wibotic_ros.git
 RUN git clone https://github.com/husarion/husarion_gz_worlds.git
 
@@ -95,6 +93,10 @@ RUN git clone https://github.com/husarion/husarion_gz_worlds.git
 RUN git clone git@github.com:UTNuclearRobotics/depthai-ros.git \
     && cd depthai-ros \
     && git checkout e104466be117b9094553001b73419ebcb4cca1ec
+# husarion_ugv_autonomy_ros
+    RUN git clone https://github.com/husarion/husarion_ugv_autonomy_ros.git \
+    && cd husarion_ugv_autonomy_ros \
+    && git checkout fdcd75701673212962703c600ab12c23ddecd6ba
 # ROS Components Description
 RUN git clone git@github.com:UTNuclearRobotics/ros_components_description.git \
     && cd ros_components_description \
@@ -106,25 +108,14 @@ RUN git clone git@github.com:UTNuclearRobotics/husarion_ugv_ros.git \
 # Sterling Gazebo
 RUN git clone git@github.com:UTNuclearRobotics/sterling_gazebo.git \
     && cd sterling_gazebo \
-    && git checkout 4587418f4489e489a2508555b2a9759d2db997b5
+    && git checkout 0fe39aa8483e650973286b760a8d6288d50854f5
 # Panther accessories including nav2 bringup and params
 RUN git clone git@github.com:UTNuclearRobotics/utexas_panther_accessories.git \
     && cd utexas_panther_accessories \
     && git checkout 424e22e076f77b68cc5eeb0fd885f81dc7fab959
 
 # Remove the private SSH key after cloning the repositories
-RUN rm /root/.ssh/id_ed25519
-
-# Sterling dependencies
-RUN pip install \
-    opencv-python \
-    numpy \
-    joblib \
-    scikit-learn \
-    torch \
-    pyyaml \
-    tensorflow \
-    torchvision
+RUN rm /root/.ssh/id_rsa
 
 # Install deps
 WORKDIR /root/dependency_ws

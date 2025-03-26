@@ -15,10 +15,10 @@ class LocalCostmapBuilder(Node):
         super().__init__("local_costmap_builder")
 
         # Declare parameters with default values
-        self.declare_parameter("camera_topic", "/panther/oakd2/oak_d_node/rgb/image_rect_color")
-        self.declare_parameter("local_costmap_topic", "/panther/local_costmap/costmap")
-        self.declare_parameter("terrain_representation_model", "/root/ros2_ws/src/sterling/models/0228_sim_low_terrain_rep.pt")
-        self.declare_parameter("kmeans_model", "/root/ros2_ws/src/sterling/models/0228_sim_low_kmeans.pkl")
+        self.declare_parameter("camera_topic", "/camera/image")
+        self.declare_parameter("local_costmap_topic", "/local/costmap")
+        self.declare_parameter("terrain_representation_model", "/path/to/terrain_rep.pt")
+        self.declare_parameter("kmeans_model", "/path/to/kmeans.pkl")
         self.declare_parameter("terrain_preferences", [0])
         self.declare_parameter("homography_matrix", [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0])
         self.declare_parameter("patch_size_px", 128)
@@ -80,7 +80,6 @@ class LocalCostmapBuilder(Node):
         # Lookup transform from base_link to get orientation
         try:
             transform = self.tf_buffer.lookup_transform("panther/base_link", "panther/map", rclpy.time.Time())
-            self.get_logger().error(str(transform.transform.rotation))
             self.yaw_angle = LocalCostmapHelper.quarternion_to_euler(transform.transform.rotation)
             # self.get_logger().info(f"Yaw angle: {np.degrees(yaw_angle)}")
         except Exception as e:

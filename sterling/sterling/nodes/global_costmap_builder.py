@@ -30,8 +30,8 @@ class GlobalCostmapBuilder(Node):
         super().__init__("global_costmap_builder")
 
         # Declare and get parameters
-        self.declare_parameter("local_costmap_topic", "/panther/local_costmap/costmap")
-        self.declare_parameter("global_costmap_topic", "/panther/global_costmap/costmap")
+        self.declare_parameter("local_costmap_topic", "/sterling/local/costmap")
+        self.declare_parameter("global_costmap_topic", "/slam/global/costmap")
         self.declare_parameter("use_maximum", False)
 
         self.local_costmap_topic = self.get_parameter("local_costmap_topic").value
