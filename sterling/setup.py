@@ -16,6 +16,7 @@ setup(
         (os.path.join("share", "ament_index", "resource_index", "packages"), [os.path.join("resource", package_name)]),
         (os.path.join("share", package_name), ["package.xml"]),
         (os.path.join("share", package_name, "config"), [os.path.join("config", "params.yaml")]),
+        (os.path.join("share", package_name, "config"), [os.path.join("config", "panther_sim.rviz")]),
         (os.path.join("share", package_name, "launch"), [os.path.join("launch", "costmaps.launch.py")]),
         (os.path.join("lib", package_name), lib_files),
     ],
