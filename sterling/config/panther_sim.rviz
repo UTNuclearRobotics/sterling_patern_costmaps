@@ -55,13 +55,13 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /map
+        Value: /panther/map
       Update Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /map_updates
+        Value: /panther/map_updates
       Use Timestamp: false
       Value: false
     - Alpha: 1
@@ -343,13 +343,13 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /sterling/local_costmap
+        Value: /panther/sterling/local_costmap
       Update Topic:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /sterling/local_costmap_updates
+        Value: /panther/sterling/local_costmap_updates
       Use Timestamp: false
       Value: false
     - Alpha: 0.699999988079071

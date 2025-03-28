@@ -1,8 +1,8 @@
-sterling: # Make sure namespace matches
+panther/sterling: # Make sure namespace matches
   local_costmap_builder:
     ros__parameters:
-      sub_topic_camera: "/oakd2/oak_d_node/rgb/image_rect_color"
-      sub_topic_local_costmap: "/local_costmap/costmap"
+      sub_topic_camera: "/panther/oakd2/oak_d_node/rgb/image_rect_color"
+      sub_topic_local_costmap: "/panther/local_costmap/costmap"
       pub_topic_local_costmap: "/local_costmap" # Already namespaced
       pub_topic_local_costmap_hz: 1.0
       model_path: "/root/ros2_ws/src/sterling/models/patern"
@@ -21,7 +21,7 @@ sterling: # Make sure namespace matches
 
   global_costmap_builder:
     ros__parameters:
-      sub_topic_local_costmap: "/sterling/local_costmap"
-      sub_topic_global_costmap: "/global_costmap/costmap"
+      sub_topic_local_costmap: "/panther/sterling/local_costmap"
+      sub_topic_global_costmap: "/panther/global_costmap/costmap"
       # True, if you want to keep maximum values of the costmap. False, if you want to override existing data.
       use_maximum: False

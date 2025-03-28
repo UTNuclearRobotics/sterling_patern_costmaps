@@ -16,7 +16,12 @@ RUN apt update && apt upgrade -V -y \
     vim \
     tmux \
     x11-apps \
-    python3-pip
+    python3-pip \
+    python3-colcon-clean \
+    openssh-client \
+    lsb-release \
+    gnupg \
+    ignition-fortress
 
 RUN curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash \
     && apt install -y git-lfs \
@@ -35,8 +40,15 @@ RUN apt install -y \
     ros-${ROS_DISTRO}-pcl-ros \
     ros-${ROS_DISTRO}-slam-toolbox \
     ros-${ROS_DISTRO}-navigation2 \
-    ros-${ROS_DISTRO}-nav2-bringup
+    ros-${ROS_DISTRO}-nav2-bringup \
+    ros-${ROS_DISTRO}-opennav-docking \
+    ros-${ROS_DISTRO}-rmw-cyclonedds-cpp \
+    ros-${ROS_DISTRO}-ros2-control \
+    ros-${ROS_DISTRO}-ros2-controllers \
+    ros-${ROS_DISTRO}-controller-interface \
+    ros-${ROS_DISTRO}-controller-manager
 
+# Sterling dependencies
 RUN pip install \
     inflection \
     rdflib \
@@ -51,19 +63,15 @@ RUN pip install \
     pyyaml \
     tensorflow \
     torchvision
-
-RUN sudo apt-get update
-RUN sudo apt-get install lsb-release gnupg
+    
 RUN sudo curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
 RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null
 
-# Install Gazebo Fortress
-RUN apt update && apt install -y \
-    ignition-fortress \
-    ros-${ROS_DISTRO}-ign-ros2-control
+# Install Gazebo Fortess
+RUN sudo apt-get install -y ignition-fortress
+RUN apt install -y ros-${ROS_DISTRO}-ign-ros2-control
 
 # Unsecurely put private SSH key in the image to clone private repos
-RUN apt update && apt install -y git openssh-client
 COPY id_rsa /root/.ssh/id_rsa
 RUN chmod 600 /root/.ssh/id_rsa
 
@@ -78,28 +86,33 @@ WORKDIR /root/dependency_ws/src
 
 RUN git clone -b humble https://github.com/BehaviorTree/BehaviorTree.ROS2.git
 RUN git clone -b ros2 https://github.com/husarion/panther_msgs.git
+RUN git clone -b ros2-devel https://github.com/husarion/wibotic_ros.git
 RUN git clone https://github.com/husarion/husarion_gz_worlds.git
 
 # DepthAI ROS
 RUN git clone git@github.com:UTNuclearRobotics/depthai-ros.git \
     && cd depthai-ros \
     && git checkout e104466be117b9094553001b73419ebcb4cca1ec
-# Panther ROS
-RUN git clone git@github.com:UTNuclearRobotics/panther_ros.git \
-    && cd panther_ros \
-    && git checkout 126e91221922e7f738e63ce73fb6f08345cf2f58
-# Sterling Gazebo
-RUN git clone git@github.com:UTNuclearRobotics/sterling_gazebo.git \
-    && cd sterling_gazebo \
-    && git checkout ec7141214fef1bbd32800086ce4c3fc1ea8bb330
-# NAV2 Docker
-RUN git clone git@github.com:UTNuclearRobotics/nav2-docker.git \
-    && cd nav2-docker \
-    && git checkout c9e5ca43598b208dba7a88aa928407ae6cf67218
+# husarion_ugv_autonomy_ros
+    RUN git clone https://github.com/husarion/husarion_ugv_autonomy_ros.git \
+    && cd husarion_ugv_autonomy_ros \
+    && git checkout fdcd75701673212962703c600ab12c23ddecd6ba
 # ROS Components Description
 RUN git clone git@github.com:UTNuclearRobotics/ros_components_description.git \
     && cd ros_components_description \
-    && git checkout a31f6f6fe1f5f3530a79b219f967911e2cef6a78
+    && git checkout b33b2655241e1aa123fd8c2de0b5b7d0310e36f2
+# husarion_ugv_ros
+RUN git clone git@github.com:UTNuclearRobotics/husarion_ugv_ros.git \
+    && cd husarion_ugv_ros \
+    && git checkout b1aa62f7160b9a3765ef360eae9a5779e73bda95
+# Sterling Gazebo
+RUN git clone git@github.com:UTNuclearRobotics/sterling_gazebo.git \
+    && cd sterling_gazebo \
+    && git checkout 0fe39aa8483e650973286b760a8d6288d50854f5
+# Panther accessories including nav2 bringup and params
+RUN git clone git@github.com:UTNuclearRobotics/utexas_panther_accessories.git \
+    && cd utexas_panther_accessories \
+    && git checkout 424e22e076f77b68cc5eeb0fd885f81dc7fab959
 
 # Remove the private SSH key after cloning the repositories
 RUN rm /root/.ssh/id_rsa
