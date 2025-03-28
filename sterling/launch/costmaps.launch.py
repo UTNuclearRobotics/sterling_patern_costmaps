@@ -24,7 +24,7 @@ def generate_launch_description():
 
     declare_namespace_arg = DeclareLaunchArgument(
         "namespace",
-        default_value="panther/sterling",
+        default_value="sterling",
         description="Add namespace to all launched nodes.",
     )
     declare_use_sim_time_arg = DeclareLaunchArgument(
