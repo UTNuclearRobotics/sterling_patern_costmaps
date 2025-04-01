@@ -7,24 +7,14 @@ alias run_gazebo_high='ros2 launch sterling_gazebo sidewalks.launch.py res:=high
 
 ### Step 2: Launch Nav2
 # Sterling parameters
-alias run_nav2='ros2 launch husarion_nav2 navigation2_bringup.launch.py use_rviz:=True use_sim_time:=True nav2_config_file_slam:=/root/ros2_ws/src/sterling/config/nav2_params.yaml'
+alias run_nav2='ros2 launch utexas_panther bringup_launch.py namespace:=panther observation_topic:=ouster/scan observation_topic_type:=laserscan slam:=true use_rviz:=True use_sim_time:=true params_file:=/root/ros2_ws/src/sterling/config/nav2_params.yaml'
 
-# Run Nav2 with a loaded map. The first argument is the map file path and should contain a .pgm and .yaml file.
-# function run_nav2_loaded() {
-#     if [ ! -f "$1" ]; then
-#         echo "Error: The provided argument is not a valid file path."
-#         return 1
-#     fi
-
-#     ros2 launch husarion_nav2 navigation2_bringup.launch.py \
-#     use_rviz:=True \
-#     use_sim_time:=True \
-#     nav2_config_file_slam:=/root/ros2_ws/src/sterling/config/nav2_params.yaml \
-#     map:="$1"; #TODO: Map paremeter
-# };
-
-# Default parameters, when want to collect rosbag data
-alias run_nav2_default='ros2 launch husarion_nav2 navigation2_bringup.launch.py use_rviz:=True use_sim_time:=True'
+# How to send a goal_pose now and the alias does not work
+function run_goal() {
+    local x=${1:-0.0}
+    local y=${2:-0.0}
+    ros2 topic pub /panther/goal_pose geometry_msgs/msg/PoseStamped "{ header: { frame_id: 'panther/map' }, pose: { position: { x: $x, y: $y }, orientation: { x: 0, y: 0, z: 0, w: 1 } } }"
+}
 
 ### Step 3: Sterling costmap node
 alias run_sterling_costmap='source /root/ros2_ws/install/setup.bash && ros2 launch sterling costmaps.launch.py'
