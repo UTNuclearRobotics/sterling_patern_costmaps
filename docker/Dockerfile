@@ -122,7 +122,7 @@ WORKDIR /root/dependency_ws
 RUN rosdep update
 RUN rosdep install --from-paths src --ignore-src -r -y
 # TODO: the --continue-on-error should not be needed.
-RUN source /opt/ros/${ROS_DISTRO}/setup.bash && colcon build --continue-on-error
+RUN source /opt/ros/${ROS_DISTRO}/setup.bash && colcon build
 
 # Remove unnecessary files
 RUN rm -rf src build logs
