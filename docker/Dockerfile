@@ -72,8 +72,8 @@ RUN sudo apt-get install -y ignition-fortress
 RUN apt install -y ros-${ROS_DISTRO}-ign-ros2-control
 
 # Unsecurely put private SSH key in the image to clone private repos
-COPY id_rsa /root/.ssh/id_rsa
-RUN chmod 600 /root/.ssh/id_rsa
+COPY id_ed25519 /root/.ssh/id_ed25519
+RUN chmod 600 /root/.ssh/id_ed25519
 
 # Add GitHub's SSH host key to known_hosts
 RUN mkdir -p /root/.ssh && \
@@ -115,7 +115,7 @@ RUN git clone git@github.com:UTNuclearRobotics/utexas_panther_accessories.git \
     && git checkout 424e22e076f77b68cc5eeb0fd885f81dc7fab959
 
 # Remove the private SSH key after cloning the repositories
-RUN rm /root/.ssh/id_rsa
+RUN rm /root/.ssh/id_ed25519
 
 # Install deps
 WORKDIR /root/dependency_ws
