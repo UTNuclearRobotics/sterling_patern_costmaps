@@ -94,7 +94,7 @@ class LocalCostmapBuilder(Node):
 
         # Lookup transform from base_link to get orientation
         try:
-            transform = self.tf_buffer.lookup_transform("base_link", "map", rclpy.time.Time())
+            transform = self.tf_buffer.lookup_transform("panther/base_link", "panther/map", rclpy.time.Time())
             self.yaw_angle = LocalCostmapHelper.quarternion_to_euler(transform.transform.rotation)
             # self.get_logger().info(f"Yaw angle: {np.degrees(yaw_angle)}")
         except Exception as e:
