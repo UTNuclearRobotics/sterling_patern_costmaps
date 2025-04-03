@@ -43,7 +43,16 @@ A volume is setup to have `/sterling` inside `/ros2_ws/src` in the container. To
 colcon build
 run_sterling_costmap
 ```
-To see the costmaps on RViz, change the map topic to `/sterling/local_costmap/costmap` or `/sterling/global_costmap/costmap`. 
+You should see RViz launch to view all the costmaps from Nav2 and Sterling combined.
+
+## Models
+The [default](https://utexas.app.box.com/folder/312320392388) Patern model folder should contain:
+- terrain_rep.pt
+- cost_head.pt
+- fpro.pt
+- fvis.pt
+- upro.pt
+- uvis.pt
 
 # Recording Data
 If you want to record bag data, you can run this script. It'd recommend running it outside of the container for easy access to the bag. The bag will be saved in the directory you run this script.  
