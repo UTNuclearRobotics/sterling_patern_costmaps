@@ -15,7 +15,7 @@ services:
       - DISPLAY=${DISPLAY}
       # enable NVIDIA GPU access inside the container
       - NVIDIA_DRIVER_CAPABILITIES=all
-      # - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_VISIBLE_DEVICES=all
       # Set environment variables for GPU rendering
       - __NV_PRIME_RENDER_OFFLOAD=1
       - __GLX_VENDOR_LIBRARY_NAME=nvidia
@@ -46,4 +46,4 @@ services:
     #   - /dev/hokuyo:/dev/hokuyo
     #   - /dev/input/js0:/dev/input/js0
     # run the entrypoint script and pass the UID and GID of the host user
-    entrypoint: /usr/bin/entrypoint.sh -u "$UID_GID" -n "$UNAME"
+    entrypoint: /usr/bin/entrypoint.sh

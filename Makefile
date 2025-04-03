@@ -9,10 +9,7 @@ help:
 start:
 	@echo "Starting Docker container..."
 	@xhost +si:localuser:root
-	@echo "added docker xhost permissions"
-	@export UID_GID=$$(id -u):$$(id -g); \
-	export UNAME=$$(whoami); \
-	echo "gathering host user info... $$UNAME $$UID_GID"; \
+	@echo "Added docker xhost permissions"
 	docker compose -f ./docker/docker-compose.yaml up -d
 
 stop:
@@ -25,7 +22,7 @@ shell:
 
 build:
 	@if [ "$$(docker ps -q -f name=patern_gazebo_c)" ]; then \
-		echo "stopping container patern_gazebo_c..."; \
+		echo "Stopping container patern_gazebo_c..."; \
 		docker compose -f ./docker/docker-compose.yaml down; \
 	fi
 	@echo "Building Docker container..."
