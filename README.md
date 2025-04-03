@@ -1,69 +1,98 @@
-# Run the Docker Container
+# Patern Simulation
 
-## Build
-Source the alias to run Docker commands. Build the Docker image. (Make sure you copy your private SSH key and place it as `id_rsa` in the top level of this repository. It will be temporarily copied into the container to clone private repositories.) You can source `bash_utils` in each new terminal or add to your `.bashrc`.
-```
-source bash_utils
-sterling_build
-```
+This package will install and bring up all the necessary components for running Sterling-Patern simulation demos in Gazebo. 
 
-## Start
-Start the Docker container
-```
-source bash_utils
-sterling_start
-```
+## 1. Install Dependencies
+  <details>
+  <summary><a href="https://docs.docker.com/engine/install/ubuntu/">Docker</a></summary>
+  <br>
 
-## Shell
-Open a command shell inside the Docker container
-```
-source bash_utils
-sterling_shell
-```
-Here you will run all the following commands inside the container.
+  Installation Guide: 🔗 https://docs.docker.com/engine/install/ubuntu/
 
-# Gazebo Simulation
-You can choose the resolution of simulation you'd liked to run:
-```
-run_gazebo_low
-run_gazebo_medium
-run_gazebo_high
-```
-This should bring up a window of the Husarion Panther in a boxed in area with terrain regions and a U-shaped sidewalk.
+  </details>
+  <details>
+  <summary><a href="https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/1.14.5/install-guide.html">NVIDIA Container Toolkit</a></summary>
+  <br>
 
-# Nav2
-To launch the navigation stack for the Husarion Panther:
-```
-run_nav2
-```
+  Installtion Guide: 🔗 https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/1.14.5/install-guide.html
 
-# Sterling-Patern Deploy Costmaps
-A volume is setup to have `/sterling` inside `/ros2_ws/src` in the container. To deploy Sterling-Patern, build the workspace, setup the `params.yaml` with the correct paths to trained models (you may have to grab from Ryan... or UT Box), and topic names and run the command:
-```
-colcon build
-run_sterling_costmap
-```
-You should see RViz launch to view all the costmaps from Nav2 and Sterling combined.
+  </details>
+  <details>
+  <summary><a href="https://docs.docker.com/engine/install/linux-postinstall/">Docker: Post Installation Steps</a></summary>
+  <br>
+        
+   Installation Guide: 🔗 https://docs.docker.com/engine/install/linux-postinstall/
+   
+  </details>
 
-## Models
-The [default](https://utexas.app.box.com/folder/312320392388) Patern model folder should contain:
-- terrain_rep.pt
-- cost_head.pt
-- fpro.pt
-- fvis.pt
-- upro.pt
-- uvis.pt
+## 2. Installation and Setup
+1) __Clone Repository__
+   
+   ```shell
+   git clone -b patern/husarion-packages git@github.com:UTNuclearRobotics/sterling_sim_docker.git
+   ```
+3) __Setup SSH Environment__
 
-# Recording Data
-If you want to record bag data, you can run this script. It'd recommend running it outside of the container for easy access to the bag. The bag will be saved in the directory you run this script.  
-```
-record_bag_sim.sh
-```
+   ```shell
+   ./setup.sh
+    ```
+3) __Build Docker Image__
+   
+   ```shell
+   make build
+   ```
 
-# Exit
-To close the Docker container, run this is any of the terminals and it will close the container and kick out all shell instances:
-```
-exit
-sterling_stop
-```
+## 3. Run
+- Start the Docker container.
 
+    ```shell
+    make start
+    ```
+    
+## 4. Interfacing
+- Open `patern_gazebo_c` container shell.
+   
+    ```shell
+    make shell
+    ```
+
+- 🐳 Launch the Patern costmaps. A volume is setup to have `/sterling` inside `/ros2_ws/src` in the container. To deploy Sterling-Patern, build the workspace, setup the `params.yaml` with the correct paths to trained models (you may have to grab from Ryan... or UT Box), and topic names. You should see RViz launch to view all the costmaps from Nav2 and Sterling combined.
+
+    The [default](https://utexas.app.box.com/folder/312320392388) Patern model folder should contain:
+    - terrain_rep.pt
+    - cost_head.pt
+    - fpro.pt
+    - fvis.pt
+    - upro.pt
+    - uvis.pt
+
+    ```shell
+    colcon build
+    run_sterling_costmap
+    ```
+
+- 🐳 Run Gazebo simulation. Pick one. This should bring up a window of the Husarion Panther in a boxed in area with terrain regions and a U-shaped sidewalk.
+
+    ```shell
+    run_gazebo_low
+    run_gazebo_medium
+    run_gazebo_high
+    ```
+
+- 🐳 Run the navigation stack for the Husarion Panther.
+
+    ```shell
+    run_nav2
+    ```
+
+- Stop the container.
+    
+    ```shell
+    make stop
+    ```
+
+- Record bag data. It'd recommend running it outside of the container for easy access to the bag. The bag will be saved in the directory you run this script.
+
+    ```shell
+    record_bag_sim.sh
+    ```

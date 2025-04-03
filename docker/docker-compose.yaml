@@ -6,6 +6,8 @@ services:
       # set the build context to the directory containing build files
       context: ..
       dockerfile: docker/Dockerfile
+      ssh:
+          - default
     # use the nvidia runtime for GPU access
     runtime: nvidia
     environment:

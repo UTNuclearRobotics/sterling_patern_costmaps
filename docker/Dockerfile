@@ -5,6 +5,7 @@ SHELL ["/bin/bash", "-c"]
 # set the ros version
 ENV ROS_DISTRO humble
 ENV DEBIAN_FRONTEND=noninteractive
+ENV NUM_CORES=22
 
 # install some useful packages and upgrade existing ones
 RUN apt update && apt upgrade -V -y \
@@ -29,7 +30,6 @@ RUN curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.d
     && apt install -y libcurl4-openssl-dev
 
 # install ros packages
-# see ../docs/installing_ros_packages.md for alternatives
 RUN apt install -y \
     ros-${ROS_DISTRO}-rqt-graph \
     ros-${ROS_DISTRO}-rviz2 \
@@ -46,7 +46,8 @@ RUN apt install -y \
     ros-${ROS_DISTRO}-ros2-control \
     ros-${ROS_DISTRO}-ros2-controllers \
     ros-${ROS_DISTRO}-controller-interface \
-    ros-${ROS_DISTRO}-controller-manager
+    ros-${ROS_DISTRO}-controller-manager \
+    ros-${ROS_DISTRO}-ign-ros2-control
 
 # Sterling dependencies
 RUN pip install \
@@ -67,55 +68,41 @@ RUN pip install \
 RUN sudo curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
 RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null
 
-# Install Gazebo Fortess
-RUN sudo apt-get install -y ignition-fortress
-RUN apt install -y ros-${ROS_DISTRO}-ign-ros2-control
-
-# Unsecurely put private SSH key in the image to clone private repos
-COPY id_ed25519 /root/.ssh/id_ed25519
-RUN chmod 600 /root/.ssh/id_ed25519
-
 # Add GitHub's SSH host key to known_hosts
-RUN mkdir -p /root/.ssh && \
-    touch /root/.ssh/known_hosts && \
-    chmod 600 /root/.ssh/known_hosts && \
-    ssh-keyscan github.com >> /root/.ssh/known_hosts
+RUN mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
 
 # Clone Husarion Panther packages
 WORKDIR /root/dependency_ws/src
 
-RUN git clone -b humble https://github.com/BehaviorTree/BehaviorTree.ROS2.git
-RUN git clone -b ros2 https://github.com/husarion/panther_msgs.git
-RUN git clone -b ros2-devel https://github.com/husarion/wibotic_ros.git
-RUN git clone https://github.com/husarion/husarion_gz_worlds.git
+RUN --mount=type=ssh git clone -b humble https://github.com/BehaviorTree/BehaviorTree.ROS2.git
+RUN --mount=type=ssh git clone -b ros2 https://github.com/husarion/panther_msgs.git
+RUN --mount=type=ssh git clone -b ros2-devel https://github.com/husarion/wibotic_ros.git
+RUN --mount=type=ssh git clone https://github.com/husarion/husarion_gz_worlds.git
 
 # DepthAI ROS
-RUN git clone git@github.com:UTNuclearRobotics/depthai-ros.git \
+RUN --mount=type=ssh git clone git@github.com:UTNuclearRobotics/depthai-ros.git \
     && cd depthai-ros \
     && git checkout e104466be117b9094553001b73419ebcb4cca1ec
 # husarion_ugv_autonomy_ros
-    RUN git clone https://github.com/husarion/husarion_ugv_autonomy_ros.git \
+RUN --mount=type=ssh git clone https://github.com/husarion/husarion_ugv_autonomy_ros.git \
     && cd husarion_ugv_autonomy_ros \
     && git checkout fdcd75701673212962703c600ab12c23ddecd6ba
 # ROS Components Description
-RUN git clone git@github.com:UTNuclearRobotics/ros_components_description.git \
+RUN --mount=type=ssh git clone git@github.com:UTNuclearRobotics/ros_components_description.git \
     && cd ros_components_description \
     && git checkout b33b2655241e1aa123fd8c2de0b5b7d0310e36f2
 # husarion_ugv_ros
-RUN git clone git@github.com:UTNuclearRobotics/husarion_ugv_ros.git \
+RUN --mount=type=ssh git clone git@github.com:UTNuclearRobotics/husarion_ugv_ros.git \
     && cd husarion_ugv_ros \
     && git checkout b1aa62f7160b9a3765ef360eae9a5779e73bda95
 # Sterling Gazebo
-RUN git clone git@github.com:UTNuclearRobotics/sterling_gazebo.git \
+RUN --mount=type=ssh git clone git@github.com:UTNuclearRobotics/sterling_gazebo.git \
     && cd sterling_gazebo \
     && git checkout 0fe39aa8483e650973286b760a8d6288d50854f5
 # Panther accessories including nav2 bringup and params
-RUN git clone git@github.com:UTNuclearRobotics/utexas_panther_accessories.git \
+RUN --mount=type=ssh git clone git@github.com:UTNuclearRobotics/utexas_panther_accessories.git \
     && cd utexas_panther_accessories \
     && git checkout 424e22e076f77b68cc5eeb0fd885f81dc7fab959
-
-# Remove the private SSH key after cloning the repositories
-RUN rm /root/.ssh/id_ed25519
 
 # Install deps
 WORKDIR /root/dependency_ws
