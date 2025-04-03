@@ -2,6 +2,6 @@ bags
 venv
 *.egg-info/
 __pycache__/
-id_rsa
+id_*
 models
 build
