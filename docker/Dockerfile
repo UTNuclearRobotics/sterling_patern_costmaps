@@ -5,8 +5,11 @@ SHELL ["/bin/bash", "-c"]
 # set the ros version
 ENV ROS_DISTRO humble
 ENV DEBIAN_FRONTEND=noninteractive
-ENV NUM_CORES=22
 
+# Calculate the number of cores dynamically and set NUM_CORES to (cores - 2)
+RUN NUM_CORES=$(($(nproc) - 2)); \
+    if [ "$NUM_CORES" -lt 1 ]; then NUM_CORES=1; fi;
+    
 # install some useful packages and upgrade existing ones
 RUN apt update && apt upgrade -V -y \
     && apt install -y \
