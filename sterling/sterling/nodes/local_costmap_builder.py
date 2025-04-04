@@ -30,17 +30,21 @@ class LocalCostmapBuilder(Node):
         self.declare_parameter("patch_size_px", 128)
         self.declare_parameter("patch_size_m", 0.23)
         self.declare_parameter("base_link_offset_m", 1.4)
+        self.declare_parameter("adapted", False)
+        self.declare_parameter("label_obstacles", False)
 
         # Get parameter values
         self.sub_topic_camera = self.get_parameter("sub_topic_camera").value
         self.sub_topic_local_costmap = self.get_parameter("sub_topic_local_costmap").value
+        self.pub_topic_local_costmap_hz = self.get_parameter("pub_topic_local_costmap_hz").value
+        self.pub_topic_local_costmap = self.get_parameter("pub_topic_local_costmap").value
         model_path = self.get_parameter("model_path").value
         self.H = np.array(self.get_parameter("homography_matrix").value).reshape(3, 3)
         self.patch_size_px = self.get_parameter("patch_size_px").value
         self.patch_size_m = self.get_parameter("patch_size_m").value
         self.base_link_offset_m = self.get_parameter("base_link_offset_m").value
-        self.pub_topic_local_costmap_hz = self.get_parameter("pub_topic_local_costmap_hz").value
-        self.pub_topic_local_costmap = self.get_parameter("pub_topic_local_costmap").value
+        adapted = self.get_parameter("adapted").value
+        label_obstacles = self.get_parameter("label_obstacles").value
 
         # Print parameter values
         self.get_logger().debug(f"Subscription camera topic: {self.sub_topic_camera}")
@@ -52,6 +56,8 @@ class LocalCostmapBuilder(Node):
         self.get_logger().debug(f"Patch size (px): {self.patch_size_px}")
         self.get_logger().debug(f"Patch size (m): {self.patch_size_m}")
         self.get_logger().debug(f"Base link offset (m): {self.base_link_offset_m}")
+        self.get_logger().debug(f"Adapted model: {adapted}")
+        self.get_logger().debug(f"Label obstacle: {label_obstacles}")
 
         # Subscribers
         self.camera_subscriber = self.create_subscription(Image, self.sub_topic_camera, self.camera_callback, 10)
@@ -69,7 +75,7 @@ class LocalCostmapBuilder(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
-        self.get_terrain_preferred_costmap = BEVCostmap(model_path).BEV_to_costmap
+        self.get_terrain_preferred_costmap = BEVCostmap(model_path, adapted, label_obstacles).BEV_to_costmap
 
         self.LocalCostmapHelper = None
 

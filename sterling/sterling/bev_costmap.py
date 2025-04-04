@@ -11,30 +11,40 @@ class BEVCostmap:
     An overview of the cost inference process for local planning at deployment using trained preference predictor.
     """
 
-    def __init__(self, model_path):
+    def __init__(self, model_path, adapted=False, label_obstacles=False):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+        self.label_obstacles = label_obstacles
+        
         # Load visual encoder model weights
         self.model = PaternPreAdaptation(self.device).to(self.device)
 
         # Define the expected .pt files for each submodule
-        weight_files = {
-            "visual_encoder": "fvis.pt",
-            "proprioceptive_encoder": "fpro.pt",
-            "uvis": "uvis.pt",
-            "upro": "upro.pt",
-            "cost_head": "cost_head.pt"
-        }
+        if adapted:
+            weight_files = {
+                "visual_encoder": "fvis_adapted.pt",
+                "proprioceptive_encoder": "fpro.pt",
+                "uvis": "uvis_adapted.pt",
+                "upro": "upro.pt",
+                "cost_head": "cost_head_adapted.pt",
+            }
+        else:
+            weight_files = {
+                "visual_encoder": "fvis.pt",
+                "proprioceptive_encoder": "fpro.pt",
+                "uvis": "uvis.pt",
+                "upro": "upro.pt",
+                "cost_head": "cost_head.pt",
+            }
 
         # Load weights for each submodule
         for submodule_name, file_name in weight_files.items():
             file_path = os.path.join(model_path, file_name)
             if not os.path.exists(file_path):
                 raise FileNotFoundError(f"Weight file for {submodule_name} not found at: {file_path}")
-            
+
             # Load the state dict for the submodule
             state_dict = torch.load(file_path, weights_only=True, map_location=self.device)
-            
+
             # Get the corresponding submodule from self.model
             submodule = getattr(self.model, submodule_name)
             submodule.load_state_dict(state_dict)
@@ -49,21 +59,22 @@ class BEVCostmap:
             cells = torch.tensor(cells, dtype=torch.float32, device=self.device)
 
         if len(cells.shape) == 4:  # [B, C, H, W]
-            pass  
+            pass
         elif len(cells.shape) == 3:  # [C, H, W] -> [1, C, H, W]
             cells = cells.unsqueeze(0)
-        
+
         with torch.no_grad():
             # Pass None for inertial data
             phi_vis, _, uvis_pred, _, final_cost = self.model(cells, inertial=None)
 
+            # preferences = preferences * 255
             uvis_costs = uvis_pred.squeeze(-1).cpu().numpy().astype(np.uint8)
-            final_costs = (final_cost.squeeze(-1).cpu().numpy() * 100.0 / 255.0 ).astype(np.uint8)
+            final_costs = final_cost.squeeze(-1).cpu().numpy().astype(np.uint8)
             
-            # TODO: Some values are out of range [0, 100]
             # Make sure the costs never return an obstacle (value of 100)
-            final_costs = np.clip(final_costs, -1, 99)
-
+            if not self.label_obstacles:
+                final_costs = np.clip(final_costs, -1, 99)
+            
             return uvis_costs, final_costs
 
     def BEV_to_costmap(self, bev_img, cell_size):
@@ -117,5 +128,7 @@ class BEVCostmap:
         # Assemble costmap: assign maximum cost (-1) to unknown cells and computed costs to others.
         costmap[black_cells] = -1
         costmap[~black_cells] = final_cost
+        
+        print(costmap)
 
         return costmap

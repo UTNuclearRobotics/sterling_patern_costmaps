@@ -5,7 +5,11 @@ panther/sterling: # Make sure namespace matches
       sub_topic_local_costmap: "/panther/local_costmap/costmap"
       pub_topic_local_costmap: "/panther/sterling/local_costmap"
       pub_topic_local_costmap_hz: 1.0
-      model_path: "/root/ros2_ws/src/sterling/models/patern_ahg_courtyard"
+      model_path: "/root/ros2_ws/src/sterling/models/patern_plus"
+      # True, if you want to run the adapted Patern model. This looks for _adapted.pt files in the model folder.
+      adapted: True
+      # True, if you want to allow model to label obstacles from terrain
+      label_obstacles: False
       homography_matrix:
         [
           1.2549033893146113,

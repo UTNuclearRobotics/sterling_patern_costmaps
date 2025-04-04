@@ -43,7 +43,7 @@ This package will install and bring up all the necessary components for running 
 
 - 🐳 Launch the Patern costmaps. A volume is setup to have `/sterling` inside `/ros2_ws/src` in the container. To deploy Sterling-Patern, build the workspace, setup the `params.yaml` with the correct paths to trained models (you may have to grab from Ryan... or UT Box), and topic names. You should see RViz launch to view all the costmaps from Nav2 and Sterling combined.
 
-    I recommend storing the models in a `/model` directory. The [default](https://utexas.app.box.com/folder/312320392388) Patern model folder should contain:
+    I recommend storing the models in a `/model` folder in the top directory. The [default](https://utexas.app.box.com/folder/312320392388) Patern model folder should contain:
     - terrain_rep.pt
     - cost_head.pt
     - fpro.pt
