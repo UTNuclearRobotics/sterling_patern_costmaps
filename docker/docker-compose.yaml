@@ -1,7 +1,7 @@
 services:
-  patern_gazebo_s:
-    image: patern_gazebo_i
-    container_name: patern_gazebo_c
+  sterling_patern_costmaps_s:
+    image: sterling_patern_costmaps_i
+    container_name: sterling_patern_costmaps_c
     build:
       # set the build context to the directory containing build files
       context: ..
@@ -15,7 +15,7 @@ services:
       - DISPLAY=${DISPLAY}
       # enable NVIDIA GPU access inside the container
       - NVIDIA_DRIVER_CAPABILITIES=all
-      - NVIDIA_VISIBLE_DEVICES=all
+      # - NVIDIA_VISIBLE_DEVICES=all
       # Set environment variables for GPU rendering
       - __NV_PRIME_RENDER_OFFLOAD=1
       - __GLX_VENDOR_LIBRARY_NAME=nvidia
@@ -29,7 +29,7 @@ services:
       - apparmor:unconfined
     volumes:
       # mount host directories to the container for persistent storage
-      - ../sterling:/root/ros2_ws/src/sterling
+      - ../sterling_patern_costmaps:/root/ros2_ws/src/sterling_patern_costmaps
       # mount the X11 socket to enable graphics display
       - /tmp/.X11-unix:/tmp/.X11-unix
       # for non-nvidia users

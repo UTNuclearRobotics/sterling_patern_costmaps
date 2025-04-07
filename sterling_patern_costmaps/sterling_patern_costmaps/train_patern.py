@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from sterling.models import (
+from sterling_patern_costmaps.models import (
     CostNet,
     ProprioceptionModel,
     UtilityFuncProprioceptive,
