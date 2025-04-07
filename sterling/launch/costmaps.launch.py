@@ -74,6 +74,9 @@ def generate_launch_description():
                     PathJoinSubstitution([rviz_config_file]),
                 ],
                 parameters=[{"use_sim_time": use_sim_time}],
+                remappings=[
+                ('/goal_pose', '/panther/goal_pose'),
+                ],
                 output="screen",
             ),
         ]
