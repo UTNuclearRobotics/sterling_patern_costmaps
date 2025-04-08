@@ -6,8 +6,8 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image
 from tf2_ros import Buffer, TransformListener
 
-from sterling.bev import get_BEV_image
-from sterling.bev_costmap import BEVCostmap
+from sterling_patern_costmaps.bev import get_BEV_image
+from sterling_patern_costmaps.bev_costmap import BEVCostmap
 
 
 class LocalCostmapBuilder(Node):
@@ -66,7 +66,7 @@ class LocalCostmapBuilder(Node):
         )
 
         # Publishers
-        self.sterling_costmap_publisher = self.create_publisher(OccupancyGrid, self.pub_topic_local_costmap, 10)
+        self.sterling_patern_costmap_publisher = self.create_publisher(OccupancyGrid, self.pub_topic_local_costmap, 10)
 
         # Timers
         self.timer = self.create_timer(self.pub_topic_local_costmap_hz, self.update_costmap)
@@ -171,7 +171,7 @@ class LocalCostmapBuilder(Node):
         # msg.data = np.maximum(msg.data, rotated_data).tolist()
 
         # Publish message
-        self.sterling_costmap_publisher.publish(msg)
+        self.sterling_patern_costmap_publisher.publish(msg)
 
 
 class LocalCostmapHelper:

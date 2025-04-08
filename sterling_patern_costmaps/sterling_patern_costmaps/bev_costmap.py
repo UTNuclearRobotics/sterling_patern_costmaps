@@ -3,7 +3,7 @@ import os
 import numpy as np
 import torch
 
-from sterling.train_patern import PaternPreAdaptation
+from sterling_patern_costmaps.train_patern import PaternPreAdaptation
 
 
 class BEVCostmap:

@@ -125,7 +125,7 @@ RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc \
     && echo "source /root/dependency_ws/install/setup.bash" >> ~/.profile \
     && source ~/.bashrc
 
-RUN echo "source /root/ros2_ws/src/sterling/alias.sh" >> ~/.bashrc
+RUN echo "source /root/ros2_ws/src/sterling_patern_costmaps/alias.sh" >> ~/.bashrc
 
 # copy the entrypoint into the image
 COPY docker/entrypoint.sh /usr/bin/entrypoint.sh

@@ -17,12 +17,12 @@ stop:
 	@docker compose -f ./docker/docker-compose.yaml down
 
 shell:
-	@echo "Opening a shell for patern_gazebo_c..."
-	@docker exec -ti patern_gazebo_c bash -l
+	@echo "Opening a shell for sterling_patern_costmaps_c..."
+	@docker exec -ti sterling_patern_costmaps_c bash -l
 
 build:
-	@if [ "$$(docker ps -q -f name=patern_gazebo_c)" ]; then \
-		echo "Stopping container patern_gazebo_c..."; \
+	@if [ "$$(docker ps -q -f name=sterling_patern_costmaps_c)" ]; then \
+		echo "Stopping container sterling_patern_costmaps_c..."; \
 		docker compose -f ./docker/docker-compose.yaml down; \
 	fi
 	@echo "Building Docker container..."

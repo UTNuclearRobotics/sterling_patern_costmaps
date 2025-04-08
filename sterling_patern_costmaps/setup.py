@@ -4,8 +4,8 @@ from setuptools import find_packages, setup
 import glob
 import os
 
-package_name = "sterling"
-lib_files = [f for f in glob.glob("sterling/lib/sterling/**/*", recursive=True) if os.path.isfile(f)]
+package_name = "sterling_patern_costmaps"
+lib_files = [f for f in glob.glob("sterling_patern_costmaps/lib/sterling_patern_costmaps/**/*", recursive=True) if os.path.isfile(f)]
 
 
 setup(
@@ -39,8 +39,8 @@ setup(
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "global_costmap_builder = sterling.nodes.global_costmap_builder:main",
-            "local_costmap_builder = sterling.nodes.local_costmap_builder:main",
+            "global_costmap_builder = sterling_patern_costmaps.nodes.global_costmap_builder:main",
+            "local_costmap_builder = sterling_patern_costmaps.nodes.local_costmap_builder:main",
         ],
     },
 )
