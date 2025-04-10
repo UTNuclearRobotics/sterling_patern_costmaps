@@ -68,9 +68,7 @@ RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc \
     && source ~/.bashrc
 
 WORKDIR /root/ros1_ws
-RUN --mount=type=ssh git clone https://github.com/UTNuclearRobotics/utexas_sterling.git \
-    && cd utexas_sterling \
-    && git checkout feature/patern
+RUN --mount=type=ssh git clone git@github.com:UTNuclearRobotics/utexas_sterling.git
 
 SHELL ["/bin/bash", "-l", "-c"]
 CMD ["bash"]

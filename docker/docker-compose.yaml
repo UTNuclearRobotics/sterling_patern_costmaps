@@ -2,7 +2,12 @@ version: '3.8'
 
 services:
   ros:
-    build: .
+    build:
+      # set the build context to the directory containing build files
+      context: ..
+      dockerfile: docker/Dockerfile
+      ssh:
+          - default
     container_name: sterling_patern_costmaps_c
     image: sterling_patern_costmaps_c
     environment:
