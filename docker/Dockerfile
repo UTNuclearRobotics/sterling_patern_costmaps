@@ -23,13 +23,16 @@ RUN apt-get update && apt-get install -y \
 #Install ROS Tools
 RUN apt-get update && apt-get install -y \
     gazebo11 \
+    ros-noetic-rviz \
     ros-noetic-gazebo-ros-pkgs \
     ros-noetic-gazebo-ros-control \
     ros-noetic-rqt \
+    ros-noetic-slam-gmapping \
     ros-noetic-rqt-common-plugins \
     python3-rosdep \
     python3-rosinstall \
     python3-vcstool \
+    ros-noetic-dwa-local-planner \
     python3-pip
 
 # Setup workspace
@@ -59,5 +62,15 @@ RUN rosdep update
 RUN rosdep install --from-paths src --ignore-src -r -y
 RUN source /opt/ros/${ROS_DISTRO}/setup.bash && catkin_make
 ENV TURTLEBOT3_MODEL=waffle
-# Source ROS
+
+RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc \
+    && echo "source /root/dependency_ws/devel/setup.bash" >> ~/.bashrc \
+    && source ~/.bashrc
+
+WORKDIR /root/ros1_ws
+RUN --mount=type=ssh git clone https://github.com/UTNuclearRobotics/utexas_sterling.git \
+    && cd utexas_sterling \
+    && git checkout feature/patern
+
+SHELL ["/bin/bash", "-l", "-c"]
 CMD ["bash"]
