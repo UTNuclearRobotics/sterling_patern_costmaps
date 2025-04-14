@@ -11,26 +11,21 @@
   <buildtool_depend>catkin</buildtool_depend>
 
   <!-- Build dependencies (needed for building the package) -->
-  <build_depend>rospy</build_depend>
-  <build_depend>nav_msgs</build_depend>
-  <build_depend>sensor_msgs</build_depend>
-  <build_depend>std_srvs</build_depend>
-  <build_depend>tf</build_depend>
+  <depend>rospy<depend>
+  <depend>nav_msgs<depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>tf</depend>
 
-  <!-- Run dependencies (needed at runtime) -->
-  <run_depend>rospy</run_depend>
-  <run_depend>nav_msgs</run_depend>
-  <run_depend>sensor_msgs</run_depend>
-  <run_depend>std_srvs</run_depend>
-  <run_depend>tf</run_depend>
-  <run_depend>move_base</run_depend>
-  <run_depend>costmap_2d</run_depend>
-  <run_depend>navfn</run_depend>
-  <run_depend>dwa_local_planner</run_depend>
-  <run_depend>slam_toolbox</run_depend>
-  <run_depend>map_server</run_depend>
-  <run_depend>robot_state_publisher</run_depend>
-  <run_depend>rviz</run_depend>
+  <!-- Runtime dependencies -->
+  <exec_depend>move_base</exec_depend>
+  <exec_depend>costmap_2d</exec_depend>
+  <exec_depend>navfn</exec_depend>
+  <exec_depend>dwa_local_planner</exec_depend>
+  <exec_depend>slam_toolbox</exec_depend>
+  <exec_depend>map_server</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>rviz</exec_depend>
 
   <!-- Test dependencies -->
   <test_depend>roslint</test_depend>

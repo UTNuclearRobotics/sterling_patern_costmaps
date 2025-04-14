@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   sterling_patern_costmaps_s:
     image: sterling_patern_costmaps_i

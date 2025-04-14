@@ -1,11 +1,11 @@
-# Dockerfile
 # Use ROS Noetic as the base image
 FROM ros:noetic
 
 # Set shell to bash
 SHELL ["/bin/bash", "-c"]
 
-# Calculate number of cores for parallel builds
+# Calculate number of cores for parallel builds and set as environment variable
+ENV NUM_CORES=8
 RUN NUM_CORES=$(($(nproc) - 2)); \
     if [ "$NUM_CORES" -lt 1 ]; then NUM_CORES=1; fi; \
     echo "export NUM_CORES=${NUM_CORES}" >> ~/.bashrc
@@ -41,7 +41,7 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-#Install ROS Tools
+# Install ROS Tools
 RUN apt-get update && apt-get install -y \
     gazebo11 \
     ros-noetic-rviz \
@@ -70,13 +70,6 @@ RUN pip install \
     pyyaml \
     tensorflow \
     torchvision
-    
-# Setup workspace
-RUN mkdir -p /ros_ws/src
-RUN mkdir -p /ros1_ws/src
-WORKDIR /ros_ws
-RUN /bin/bash -c "source /opt/ros/noetic/setup.bash"
-
 
 # Add GitHub's SSH host key to known_hosts
 RUN mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
@@ -85,7 +78,7 @@ RUN mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
 RUN mkdir -p /root/ros_ws/src
 WORKDIR /root/ros_ws
 
-# Clone your package (assuming sterling_patern_costmaps is part of utexas_sterling)
+# Clone your package into src/
 WORKDIR /root/ros_ws/src
 RUN --mount=type=ssh git clone --branch noetic/working_dockerfile --depth=1 git@github.com:UTNuclearRobotics/sterling_patern_costmaps.git
 
@@ -95,7 +88,7 @@ WORKDIR /root/ros_ws
 
 # Source the workspace in bashrc
 RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc \
-    && echo "source /root/catkin_ws/devel/setup.bash" >> ~/.bashrc \
+    && echo "source /root/ros_ws/devel/setup.bash" >> ~/.bashrc \
     && source ~/.bashrc
 
 # # Create entrypoint script
