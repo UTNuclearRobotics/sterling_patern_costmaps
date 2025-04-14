@@ -82,15 +82,6 @@ WORKDIR /root/ros_ws
 WORKDIR /root/ros_ws/src
 RUN --mount=type=ssh git clone --branch noetic/working_dockerfile --depth=1 git@github.com:UTNuclearRobotics/sterling_patern_costmaps.git
 
-# Build the workspace
-WORKDIR /root/ros_ws
-# RUN source /opt/ros/noetic/setup.bash && catkin_make -j${NUM_CORES}
-
-# Source the workspace in bashrc
-RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc \
-    && echo "source /root/ros_ws/devel/setup.bash" >> ~/.bashrc \
-    && source ~/.bashrc
-
 # # Create entrypoint script
 # RUN echo '#!/bin/bash' > /usr/bin/entrypoint.sh \
 #     && echo 'set -e' >> /usr/bin/entrypoint.sh \
@@ -125,6 +116,10 @@ RUN rosdep install --from-paths src --ignore-src -r -y
 RUN source /opt/ros/noetic/setup.bash && catkin_make
 RUN echo "export TURTLEBOT3_MODEL=waffle" >> ~/.bashrc
 
+RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc \
+    && echo "source /root/dependency_ws/devel/setup.bash" >> ~/.bashrc \
+    && source ~/.bashrc
+    
 # Set shell to login mode and default command
 SHELL ["/bin/bash", "-l", "-c"]
 CMD ["bash"]

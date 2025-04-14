@@ -11,8 +11,8 @@
   <buildtool_depend>catkin</buildtool_depend>
 
   <!-- Build dependencies (needed for building the package) -->
-  <depend>rospy<depend>
-  <depend>nav_msgs<depend>
+  <depend>rclpy</depend>
+  <!-- <depend>nav_msgs<depend> -->
   <depend>sensor_msgs</depend>
   <depend>std_srvs</depend>
   <depend>tf</depend>
@@ -27,12 +27,7 @@
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>rviz</exec_depend>
 
-  <!-- Test dependencies -->
-  <test_depend>roslint</test_depend>
-  <test_depend>rostest</test_depend>
-
-  <!-- Export for catkin -->
-  <export>
-    <!-- No specific exports needed for a Python package -->
-  </export>
+  <!-- <export>
+    <build_type>ament_python</build_type>
+  </export> -->
 </package>

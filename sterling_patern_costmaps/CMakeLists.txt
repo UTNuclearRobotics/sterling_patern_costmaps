@@ -8,7 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 ## Declare the catkin package
 catkin_package(
-  CATKIN_DEPENDS rospy
+  CATKIN_DEPENDS rclpy
 )
 catkin_python_setup()
 
