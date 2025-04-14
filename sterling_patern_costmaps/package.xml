@@ -4,7 +4,7 @@
   <name>sterling_patern_costmaps</name>
   <version>0.1.0</version>
   <description>Package for converting sterling/patern output into ROS costmaps</description>
-  <maintainer email="asharp@utexas.edu">asharp</maintainer>
+  <maintainer email="nick.chan@utexas.edu">nchan</maintainer>
   <license>TODO: License declaration</license>
 
   <!-- Build tool for ROS1 -->
@@ -32,7 +32,7 @@
   <run_depend>robot_state_publisher</run_depend>
   <run_depend>rviz</run_depend>
 
-  <!-- Test Dependencies -->
+  <!-- Test dependencies -->
   <test_depend>roslint</test_depend>
   <test_depend>rostest</test_depend>
 

@@ -35,16 +35,27 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-RUN pip3 install --no-cache-dir \
-    opencv-python \
-    numpy \
-    joblib \
-    scikit-learn \
-    torch \
-    pyyaml \
-    tensorflow \
-    torchvision
+#Install ROS Tools
+RUN apt-get update && apt-get install -y \
+    gazebo11 \
+    ros-noetic-rviz \
+    ros-noetic-gazebo-ros-pkgs \
+    ros-noetic-gazebo-ros-control \
+    ros-noetic-rqt \
+    ros-noetic-slam-gmapping \
+    ros-noetic-rqt-common-plugins \
+    python3-rosdep \
+    python3-rosinstall \
+    python3-vcstool \
+    ros-noetic-dwa-local-planner \
+    python3-pip
+
+# Setup workspace
+RUN mkdir -p /ros_ws/src
+RUN mkdir -p /ros1_ws/src
+WORKDIR /ros_ws
+RUN /bin/bash -c "source /opt/ros/noetic/setup.bash"
+
 
 # Add GitHub's SSH host key to known_hosts
 RUN mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts

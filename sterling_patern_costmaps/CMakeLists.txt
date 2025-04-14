@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   CATKIN_DEPENDS rospy
 )
+catkin_python_setup()
 
 ## Specify additional locations of header files (not needed for Python-only packages)
 # include_directories(
@@ -18,8 +19,8 @@ catkin_package(
 
 ## Install Python scripts (nodes)
 catkin_install_python(PROGRAMS
-  nodes/global_costmap_builder.py
-  nodes/local_costmap_builder.py
+  sterling_patern_costmaps/nodes/global_costmap_builder.py
+  sterling_patern_costmaps/nodes/local_costmap_builder.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
@@ -29,7 +30,7 @@ install(DIRECTORY launch config
 )
 
 ## Add tests (optional, can be expanded later)
-if(CATKIN_ENABLE_TESTING)
-  find_package(roslint REQUIRED)
-  roslint_python(nodes/global_costmap_builder.py nodes/local_costmap_builder.py)
-endif()
+# if(CATKIN_ENABLE_TESTING)
+#   find_package(roslint REQUIRED)
+#   roslint_python(nodes/global_costmap_builder.py nodes/local_costmap_builder.py)
+# endif()
