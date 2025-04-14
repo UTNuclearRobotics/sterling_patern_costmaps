@@ -35,6 +35,21 @@ RUN apt-get update && apt-get install -y \
     ros-noetic-dwa-local-planner \
     python3-pip
 
+RUN pip install \
+    inflection \
+    rdflib \
+    wrapt \
+    termcolor \
+    tqdm \
+    opencv-python \
+    numpy \
+    joblib \
+    scikit-learn \
+    torch \
+    pyyaml \
+    tensorflow \
+    torchvision
+    
 # Setup workspace
 RUN mkdir -p /ros_ws/src
 RUN mkdir -p /ros1_ws/src

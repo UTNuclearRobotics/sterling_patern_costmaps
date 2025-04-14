@@ -1,31 +1,26 @@
-panther/sterling: # Make sure namespace matches
-  local_costmap_builder:
-    ros__parameters:
+panther:
+  sterling:
+    local_costmap_builder:
       sub_topic_camera: "/panther/oakd2/oak_d_node/rgb/image_rect_color"
       sub_topic_local_costmap: "/panther/local_costmap/costmap"
       pub_topic_local_costmap: "/panther/sterling/local_costmap"
       pub_topic_local_costmap_hz: 1.0
-      model_path: "/root/ros2_ws/src/sterling_patern_costmaps/models/patern_plus"
-      # True, if you want to run the adapted Patern model. This looks for _adapted.pt files in the model folder.
-      adapted: True
-      # True, if you want to allow model to label obstacles from terrain
-      label_obstacles: False
-      homography_matrix:
-        [
-          1.2549033893146113,
-          -0.009711844123833758,
-          -792.5257569045234,
-          -0.0032050245281481844,
-          4.330442285389362,
-          -2627.3111389729593,
-          -1.2252930562221849e-05,
-          0.0044237916057277196,
-          -1.6782341544478678,
-        ]
+      model_path: "/root/ros1_ws/src/sterling_patern_costmaps/models/"
+      adapted: true
+      label_obstacles: false
+      homography_matrix: [
+        1.2549033893146113,
+        -0.009711844123833758,
+        -792.5257569045234,
+        -0.0032050245281481844,
+        4.330442285389362,
+        -2627.3111389729593,
+        -1.2252930562221849e-05,
+        0.0044237916057277196,
+        -1.6782341544478678
+      ]
 
-  global_costmap_builder:
-    ros__parameters:
+    global_costmap_builder:
       sub_topic_local_costmap: "/panther/sterling/local_costmap"
       sub_topic_global_costmap: "/panther/global_costmap/costmap"
-      # True, if you want to keep maximum values of the costmap. False, if you want to override existing data.
-      use_maximum: False
+      use_maximum: false
