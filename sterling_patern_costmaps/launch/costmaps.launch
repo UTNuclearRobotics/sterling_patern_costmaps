@@ -1,0 +1,30 @@
+<launch>
+  <!-- Robot State Publisher -->
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher">
+    <rosparam file="$(find sterling_patern_costmaps)/config/robot_state_publisher_params.yaml" command="load"/>
+  </node>
+
+  <!-- SLAM Toolbox -->
+  <node name="slam_toolbox" pkg="slam_toolbox" type="sync_slam_toolbox_node">
+    <rosparam file="$(find sterling_patern_costmaps)/config/slam_toolbox_params.yaml" command="load"/>
+  </node>
+
+  <!-- Map Server -->
+  <node name="map_server" pkg="map_server" type="map_server">
+    <rosparam file="$(find sterling_patern_costmaps)/config/map_server_params.yaml" command="load"/>
+  </node>
+
+  <!-- Move Base -->
+  <node name="move_base" pkg="move_base" type="move_base" output="screen">
+    <rosparam file="$(find sterling_patern_costmaps)/config/move_base_params.yaml" command="load"/>
+    <rosparam file="$(find sterling_patern_costmaps)/config/costmap_common_params.yaml" command="load" ns="global_costmap"/>
+    <rosparam file="$(find sterling_patern_costmaps)/config/costmap_common_params.yaml" command="load" ns="local_costmap"/>
+    <rosparam file="$(find sterling_patern_costmaps)/config/global_costmap_params.yaml" command="load"/>
+    <rosparam file="$(find sterling_patern_costmaps)/config/local_costmap_params.yaml" command="load"/>
+  </node>
+
+  <!-- Custom Nodes -->
+  <node name="global_costmap_builder" pkg="sterling_patern_costmaps" type="global_costmap_builder.py"/>
+  <node name="local_costmap_builder" pkg="sterling_patern_costmaps" type="local_costmap_builder.py"/>
+  <rosparam file="$(find sterling_patern_costmaps)/config/custom_nodes_params.yaml" command="load"/>
+</launch>

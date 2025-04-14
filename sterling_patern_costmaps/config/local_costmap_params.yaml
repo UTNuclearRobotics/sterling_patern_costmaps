@@ -1,0 +1,26 @@
+# local_costmap_params.yaml
+local_costmap:
+  global_frame: <namespace>/map
+  robot_base_frame: <namespace>/base_link
+  update_frequency: 5.0      # From local_costmap.update_frequency
+  publish_frequency: 2.0     # From local_costmap.publish_frequency
+  static_map: false          # Since rolling_window is true
+  rolling_window: true       # From local_costmap.rolling_window
+  width: 6.0                 # From local_costmap.width
+  height: 6.0                # From local_costmap.height
+  resolution: 0.05           # From local_costmap.resolution
+  # use_maximum: true        # From local_costmap.use_maximum (commented out in original)
+
+  plugins:
+    - {name: static_layer, type: "costmap_2d::StaticLayer"}
+    - {name: sterling_layer, type: "costmap_2d::StaticLayer"}
+    - {name: obstacle_layer, type: "costmap_2d::ObstacleLayer"}
+    - {name: inflation_layer, type: "costmap_2d::InflationLayer"}
+
+  static_layer:
+    map_topic: "/<namespace>/map"  # From local_costmap.static_layer.map_topic
+    subscribe_to_updates: true     # From local_costmap.static_layer.map_subscribe_transient_local
+
+  sterling_layer:
+    map_topic: "/<namespace>/sterling/local_costmap"  # From local_costmap.sterling_layer.map_topic
+    subscribe_to_updates: false                       # From local_costmap.sterling_layer.map_subscribe_transient_local

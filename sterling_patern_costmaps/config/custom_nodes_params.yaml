@@ -1,0 +1,19 @@
+# custom_nodes_params.yaml
+/global_costmap_builder:
+  sub_topic_local_costmap: "/move_base/local_costmap/costmap"  # Adjusted to match move_base topic
+  sub_topic_global_costmap: "/move_base/global_costmap/costmap"  # Adjusted to match move_base topic
+  pub_topic_global_costmap: "/<namespace>/sterling/global_costmap"  # Matches global_costmap.sterling_layer.map_topic
+  use_maximum: true  # From global_costmap.use_maximum
+
+/local_costmap_builder:
+  sub_topic_camera: "/camera/image_raw"  # Replace with your actual camera topic
+  sub_topic_local_costmap: "/move_base/local_costmap/costmap"  # Adjusted to match move_base topic
+  pub_topic_local_costmap: "/<namespace>/sterling/local_costmap"  # Matches local_costmap.sterling_layer.map_topic
+  pub_topic_local_costmap_hz: 1.0
+  model_path: "path/to/models"
+  homography_matrix: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+  patch_size_px: 128
+  patch_size_m: 0.23
+  base_link_offset_m: 1.4
+  adapted: false
+  label_obstacles: false

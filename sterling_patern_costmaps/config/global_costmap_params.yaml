@@ -1,0 +1,25 @@
+# global_costmap_params.yaml
+global_costmap:
+  global_frame: <namespace>/map
+  robot_base_frame: <namespace>/base_link
+  update_frequency: 1.0      # From global_costmap.update_frequency
+  publish_frequency: 1.0     # From global_costmap.publish_frequency
+  static_map: true           # Since static_layer is enabled
+  rolling_window: false      # Global costmap typically uses a static map
+  resolution: 0.05           # From global_costmap.resolution
+  track_unknown_space: true  # From global_costmap.track_unknown_space
+  use_maximum: true          # From global_costmap.use_maximum (used by global_costmap_builder)
+
+  plugins:
+    - {name: static_layer, type: "costmap_2d::StaticLayer"}
+    - {name: sterling_layer, type: "costmap_2d::StaticLayer"}
+    - {name: obstacle_layer, type: "costmap_2d::ObstacleLayer"}
+    - {name: inflation_layer, type: "costmap_2d::InflationLayer"}
+
+  static_layer:
+    map_topic: "/<namespace>/map"  # From global_costmap.static_layer.map_topic
+    subscribe_to_updates: true     # From global_costmap.static_layer.map_subscribe_transient_local
+
+  sterling_layer:
+    map_topic: "/<namespace>/sterling/global_costmap"  # From global_costmap.sterling_layer.map_topic
+    subscribe_to_updates: true                         # From global_costmap.sterling_layer.map_subscribe_transient_local

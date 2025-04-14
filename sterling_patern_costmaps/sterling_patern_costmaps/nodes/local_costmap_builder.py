@@ -1,16 +1,15 @@
 import cv2
 import numpy as np
-import rclpy
+import rospy
 from nav_msgs.msg import OccupancyGrid
-from rclpy.node import Node
 from sensor_msgs.msg import Image
-from tf2_ros import Buffer, TransformListener
+import tf
 
 from sterling_patern_costmaps.bev import get_BEV_image
 from sterling_patern_costmaps.bev_costmap import BEVCostmap
 
 
-class LocalCostmapBuilder(Node):
+class LocalCostmapBuilder(object):
     """
     This class integrates camera images and local costmap data to generate a terrain-preferred
     local costmap. It subscribes to camera and occupancy grid topics, processes the data using a homography matrix and 
@@ -18,62 +17,61 @@ class LocalCostmapBuilder(Node):
     """    
     
     def __init__(self):
-        super().__init__("local_costmap_builder")
+        # Initialize the ROS1 node
+        rospy.init_node("local_costmap_builder", anonymous=True)
 
-        # Declare parameters with default values
-        self.declare_parameter("sub_topic_camera", "/camera/topic")
-        self.declare_parameter("sub_topic_local_costmap", "/local_costmap/topic")
-        self.declare_parameter("pub_topic_local_costmap", "/local_costmap")
-        self.declare_parameter("pub_topic_local_costmap_hz", 1.0)
-        self.declare_parameter("model_path", "path/to/models")
-        self.declare_parameter("homography_matrix", [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0])
-        self.declare_parameter("patch_size_px", 128)
-        self.declare_parameter("patch_size_m", 0.23)
-        self.declare_parameter("base_link_offset_m", 1.4)
-        self.declare_parameter("adapted", False)
-        self.declare_parameter("label_obstacles", False)
-
-        # Get parameter values
-        self.sub_topic_camera = self.get_parameter("sub_topic_camera").value
-        self.sub_topic_local_costmap = self.get_parameter("sub_topic_local_costmap").value
-        self.pub_topic_local_costmap_hz = self.get_parameter("pub_topic_local_costmap_hz").value
-        self.pub_topic_local_costmap = self.get_parameter("pub_topic_local_costmap").value
-        model_path = self.get_parameter("model_path").value
-        self.H = np.array(self.get_parameter("homography_matrix").value).reshape(3, 3)
-        self.patch_size_px = self.get_parameter("patch_size_px").value
-        self.patch_size_m = self.get_parameter("patch_size_m").value
-        self.base_link_offset_m = self.get_parameter("base_link_offset_m").value
-        adapted = self.get_parameter("adapted").value
-        label_obstacles = self.get_parameter("label_obstacles").value
+        # Declare parameters with default values using ROS1 parameter server
+        self.sub_topic_camera = rospy.get_param("~sub_topic_camera", "/camera/topic")
+        self.sub_topic_local_costmap = rospy.get_param("~sub_topic_local_costmap", "/local_costmap/topic")
+        self.pub_topic_local_costmap = rospy.get_param("~pub_topic_local_costmap", "/local_costmap")
+        self.pub_topic_local_costmap_hz = rospy.get_param("~pub_topic_local_costmap_hz", 1.0)
+        model_path = rospy.get_param("~model_path", "path/to/models")
+        self.H = np.array(rospy.get_param("~homography_matrix", [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0])).reshape(3, 3)
+        self.patch_size_px = rospy.get_param("~patch_size_px", 128)
+        self.patch_size_m = rospy.get_param("~patch_size_m", 0.23)
+        self.base_link_offset_m = rospy.get_param("~base_link_offset_m", 1.4)
+        adapted = rospy.get_param("~adapted", False)
+        label_obstacles = rospy.get_param("~label_obstacles", False)
 
         # Print parameter values
-        self.get_logger().debug(f"Subscription camera topic: {self.sub_topic_camera}")
-        self.get_logger().debug(f"Subscription local costmap topic: {self.sub_topic_local_costmap}")
-        self.get_logger().debug(f"Publication local costmap topic: {self.pub_topic_local_costmap}")
-        self.get_logger().debug(f"Publication local costmap frequency: {self.pub_topic_local_costmap_hz} Hz")
-        self.get_logger().debug(f"Model path: {model_path}")
-        self.get_logger().debug(f"Homography matrix: \n{self.H}")
-        self.get_logger().debug(f"Patch size (px): {self.patch_size_px}")
-        self.get_logger().debug(f"Patch size (m): {self.patch_size_m}")
-        self.get_logger().debug(f"Base link offset (m): {self.base_link_offset_m}")
-        self.get_logger().debug(f"Adapted model: {adapted}")
-        self.get_logger().debug(f"Label obstacle: {label_obstacles}")
+        rospy.logdebug(f"Subscription camera topic: {self.sub_topic_camera}")
+        rospy.logdebug(f"Subscription local costmap topic: {self.sub_topic_local_costmap}")
+        rospy.logdebug(f"Publication local costmap topic: {self.pub_topic_local_costmap}")
+        rospy.logdebug(f"Publication local costmap frequency: {self.pub_topic_local_costmap_hz} Hz")
+        rospy.logdebug(f"Model path: {model_path}")
+        rospy.logdebug(f"Homography matrix: \n{self.H}")
+        rospy.logdebug(f"Patch size (px): {self.patch_size_px}")
+        rospy.logdebug(f"Patch size (m): {self.patch_size_m}")
+        rospy.logdebug(f"Base link offset (m): {self.base_link_offset_m}")
+        rospy.logdebug(f"Adapted model: {adapted}")
+        rospy.logdebug(f"Label obstacle: {label_obstacles}")
 
         # Subscribers
-        self.camera_subscriber = self.create_subscription(Image, self.sub_topic_camera, self.camera_callback, 10)
-        self.costmap_subscriber = self.create_subscription(
-            OccupancyGrid, self.sub_topic_local_costmap, self.costmap_callback, 10
+        self.camera_subscriber = rospy.Subscriber(
+            self.sub_topic_camera,
+            Image,
+            self.camera_callback,
+            queue_size=10
+        )
+        self.costmap_subscriber = rospy.Subscriber(
+            self.sub_topic_local_costmap,
+            OccupancyGrid,
+            self.costmap_callback,
+            queue_size=10
         )
 
         # Publishers
-        self.sterling_patern_costmap_publisher = self.create_publisher(OccupancyGrid, self.pub_topic_local_costmap, 10)
+        self.sterling_patern_costmap_publisher = rospy.Publisher(
+            self.pub_topic_local_costmap,
+            OccupancyGrid,
+            queue_size=10
+        )
 
-        # Timers
-        self.timer = self.create_timer(self.pub_topic_local_costmap_hz, self.update_costmap)
+        # Timer for periodic updates
+        self.timer = rospy.Timer(rospy.Duration(1.0 / self.pub_topic_local_costmap_hz), self.update_costmap)
 
-        # Initialize tf buffer and listener
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
+        # Initialize tf listener for ROS1
+        self.tf_listener = tf.TransformListener()
 
         self.get_terrain_preferred_costmap = BEVCostmap(model_path, adapted, label_obstacles).BEV_to_costmap
 
@@ -100,11 +98,12 @@ class LocalCostmapBuilder(Node):
 
         # Lookup transform from base_link to get orientation
         try:
-            transform = self.tf_buffer.lookup_transform("panther/base_link", "panther/map", rclpy.time.Time())
-            self.yaw_angle = LocalCostmapHelper.quarternion_to_euler(transform.transform.rotation)
-            # self.get_logger().info(f"Yaw angle: {np.degrees(yaw_angle)}")
-        except Exception as e:
-            self.get_logger().error(f"Transform lookup failed: {e}")
+            (trans, rot) = self.tf_listener.lookupTransform("panther/map", "panther/base_link", rospy.Time(0))
+            euler = tf.transformations.euler_from_quaternion(rot)
+            self.yaw_angle = euler[2]  # Yaw is the third element (roll, pitch, yaw)
+            # rospy.loginfo(f"Yaw angle: {np.degrees(self.yaw_angle)}")
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+            rospy.logerr(f"Transform lookup failed: {e}")
             return
 
     def costmap_callback(self, msg):
@@ -125,21 +124,21 @@ class LocalCostmapBuilder(Node):
             self.LocalCostmapHelper = LocalCostmapHelper(msg.info.resolution, msg.info.width, msg.info.height)
         self.occupany_grid_msg = msg
 
-    def update_costmap(self):
+    def update_costmap(self, event=None):
         """
         Updates the local costmap using camera data, yaw angle, and occupancy grid message.
-        This function is dynamically updates the robot's local costmap with terrain-preferred costs
+        This function dynamically updates the robot's local costmap with terrain-preferred costs
         based on real-time camera data and orientation.
         """
     
         if not self.camera_msg or not self.yaw_angle or not self.occupany_grid_msg:
             if self.camera_msg is None:
-                self.get_logger().debug("Camera message is None")
+                rospy.logdebug("Camera message is None")
             if self.yaw_angle is None:
-                self.get_logger().debug("Yaw angle is None")
+                rospy.logdebug("Yaw angle is None")
             if self.occupany_grid_msg is None:
-                self.get_logger().debug("Occupancy grid message is None")
-            self.get_logger().info("Waiting for camera and occupancy grid message...")
+                rospy.logdebug("Occupancy grid message is None")
+            rospy.loginfo("Waiting for camera and occupancy grid message...")
             return
 
         # Get BEV image
@@ -151,7 +150,7 @@ class LocalCostmapBuilder(Node):
 
         # Get terrain preferred costmap
         terrain_costmap = self.get_terrain_preferred_costmap(bev_image, self.patch_size_px)
-        # self.get_logger().info(f"Costmap:\n{terrain_costmap}")
+        # rospy.loginfo(f"Costmap:\n{terrain_costmap}")
 
         # TODO: Bug that the costmap is flipped horizontally
         terrain_costmap = np.fliplr(terrain_costmap)
@@ -282,13 +281,12 @@ class LocalCostmapHelper:
         return rotated_data
 
 
-def main(args=None):
-    rclpy.init(args=args)
-    costmap_updater = LocalCostmapBuilder()
-    rclpy.spin(costmap_updater)
-    costmap_updater.destroy_node()
-    rclpy.shutdown()
-
+def main():
+    try:
+        LocalCostmapBuilder()
+        rospy.spin()
+    except rospy.ROSInterruptException:
+        pass
 
 if __name__ == "__main__":
     main()

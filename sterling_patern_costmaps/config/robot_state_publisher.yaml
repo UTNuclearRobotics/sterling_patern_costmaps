@@ -1,0 +1,3 @@
+# robot_state_publisher_params.yaml
+robot_state_publisher:
+  publish_frequency: 10.0  # Default value, can be adjusted

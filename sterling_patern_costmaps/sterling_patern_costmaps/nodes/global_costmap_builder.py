@@ -2,23 +2,12 @@ import os
 from datetime import datetime
 
 import numpy as np
-import rclpy
+import rospy
 import yaml
 from nav_msgs.msg import OccupancyGrid
-from rclpy.node import Node
-from rclpy.qos import QoSDurabilityPolicy, QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
-from std_srvs.srv import Trigger
+from std_srvs.srv import Trigger, TriggerResponse
 
-# Define a QoS profile with Transient Local durability
-qos_profile = QoSProfile(
-    depth=10,  # Queue size
-    history=QoSHistoryPolicy.KEEP_LAST,  # Keep last N messages
-    reliability=QoSReliabilityPolicy.RELIABLE,  # Reliable delivery
-    durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,  # Transient Local durability
-)
-
-
-class GlobalCostmapBuilder(Node):
+class GlobalCostmapBuilder(object):
     """
     This class is responsible for managing and building a global costmap by stitching together 
     local costmaps. It listens to topics for local and global costmaps, processes the incoming 
@@ -27,50 +16,47 @@ class GlobalCostmapBuilder(Node):
     """
 
     def __init__(self):
-        super().__init__("global_costmap_builder")
+        # Initialize the ROS1 node
+        rospy.init_node("global_costmap_builder", anonymous=True)
 
-        # Declare and get parameters
-        self.declare_parameter("sub_topic_local_costmap", "/local_costmap/costmap")
-        self.declare_parameter("sub_topic_global_costmap", "/global_costmap/costmap")
-        self.declare_parameter("pub_topic_global_costmap", "global_costmap")
-        self.declare_parameter("use_maximum", False)
-
-        self.sub_topic_local_costmap = self.get_parameter("sub_topic_local_costmap").value
-        self.sub_topic_global_costmap = self.get_parameter("sub_topic_global_costmap").value
-        self.pub_topic_global_costmap = self.get_parameter("pub_topic_global_costmap").value
-        self.use_maximum = self.get_parameter("use_maximum").value
+        # Declare and get parameters using ROS1 parameter server
+        self.sub_topic_local_costmap = rospy.get_param("~sub_topic_local_costmap", "/local_costmap/costmap")
+        self.sub_topic_global_costmap = rospy.get_param("~sub_topic_global_costmap", "/global_costmap/costmap")
+        self.pub_topic_global_costmap = rospy.get_param("~pub_topic_global_costmap", "global_costmap")
+        self.use_maximum = rospy.get_param("~use_maximum", False)
 
         # Print parameter values
-        self.get_logger().debug(f"Subscription local costmap topic: {self.sub_topic_local_costmap}")
-        self.get_logger().debug(f"Subscription global costmap topic: {self.sub_topic_global_costmap}")
-        self.get_logger().debug(f"Publication global costmap topic: {self.sub_topic_global_costmap}")
-        self.get_logger().debug(f"Use maximum: {self.use_maximum}")
+        rospy.logdebug(f"Subscription local costmap topic: {self.sub_topic_local_costmap}")
+        rospy.logdebug(f"Subscription global costmap topic: {self.sub_topic_global_costmap}")
+        rospy.logdebug(f"Publication global costmap topic: {self.pub_topic_global_costmap}")
+        rospy.logdebug(f"Use maximum: {self.use_maximum}")
 
         # Subscribe to the local costmap
-        self.create_subscription(
-            OccupancyGrid,
+        self.local_sub = rospy.Subscriber(
             self.sub_topic_local_costmap,
+            OccupancyGrid,
             self.stitch_local_publish_global,
-            10,
+            queue_size=10
         )
 
         # Subscribe to the global costmap
-        self.create_subscription(
-            OccupancyGrid,
+        self.global_sub = rospy.Subscriber(
             self.sub_topic_global_costmap,
+            OccupancyGrid,
             self.global_costmap_callback,
-            10,
+            queue_size=10
         )
 
         # Publisher for the global costmap
-        self.stitched_costmap_publisher = self.create_publisher(
-            OccupancyGrid,
+        self.stitched_costmap_publisher = rospy.Publisher(
             self.pub_topic_global_costmap,
-            qos_profile=qos_profile,
+            OccupancyGrid,
+            queue_size=10,
+            latch=True  # ROS1 equivalent of Transient Local durability
         )
 
         # Create a service to save the costmap
-        self.service = self.create_service(Trigger, "save_costmap", self.save_costmap_callback)
+        self.service = rospy.Service("save_costmap", Trigger, self.save_costmap_callback)
 
         # Initialize stitched costmap
         self.stitched_costmap = None
@@ -104,7 +90,7 @@ class GlobalCostmapBuilder(Node):
             self.stitched_height = self.global_height
             self.stitched_origin_x = self.global_origin_x
             self.stitched_origin_y = self.global_origin_y
-            self.get_logger().info("Global costmap initialized.")
+            rospy.loginfo("Global costmap initialized.")
         # If origin or size of global costmap changes, resize stitched costmap
         elif (
             self.stitched_width != self.global_width
@@ -128,7 +114,7 @@ class GlobalCostmapBuilder(Node):
         """
 
         if self.stitched_costmap is None:
-            self.get_logger().warn("Stitched costmap not yet initialized.")
+            rospy.logwarn("Stitched costmap not yet initialized.")
             return
 
         # Extract local costmap data
@@ -199,9 +185,9 @@ class GlobalCostmapBuilder(Node):
 
         # Update the stitched costmap
         self.stitched_costmap = new_stitched_costmap
-        self.get_logger().info(f"Resized stitched costmap to {self.stitched_width}x{self.stitched_height}")
+        rospy.loginfo(f"Resized stitched costmap to {self.stitched_width}x{self.stitched_height}")
 
-    def save_costmap_callback(self, request, response):
+    def save_costmap_callback(self, request):
         """
         Callback function for a service that saves the current costmap to a file.
 
@@ -209,11 +195,12 @@ class GlobalCostmapBuilder(Node):
         current costmap data to a PGM file along with its metadata in a YAML file. 
         The files are stored in a directory named with the current timestamp.
         """
-        
+        response = TriggerResponse()
+
         if self.update_msg is None:
             response.success = False
             response.message = "No costmap data received yet."
-            self.get_logger().warn(response.message)
+            rospy.logwarn(response.message)
             return response
 
         try:
@@ -223,18 +210,18 @@ class GlobalCostmapBuilder(Node):
             yaml_filename = f"global_costmap_{current_time}/costmap.yaml"
 
             # Save the costmap to a PGM file
-            GlobalCostmapBuilder.save_costmap_to_pgm(self.update_msg, pgm_filename)
+            self.save_costmap_to_pgm(self.update_msg, pgm_filename)
 
             # Save the costmap metadata to a YAML file
-            GlobalCostmapBuilder.save_costmap_to_yaml(self.update_msg, yaml_filename)
+            self.save_costmap_to_yaml(self.update_msg, yaml_filename)
 
             response.success = True
             response.message = f"Costmap saved to global_costmap_{current_time}"
-            self.get_logger().info(response.message)
+            rospy.loginfo(response.message)
         except Exception as e:
             response.success = False
             response.message = f"Failed to save costmap: {str(e)}"
-            self.get_logger().error(response.message)
+            rospy.logerr(response.message)
 
         return response
 
@@ -257,8 +244,9 @@ class GlobalCostmapBuilder(Node):
         data = np.array(costmap.data, dtype=np.int8).reshape((costmap.info.height, costmap.info.width))
 
         # Convert cost values to PGM format (0-255)
-        data = np.clip(data, 0, 100)  # Clip values to 0-100 (Nav2 costmap range)
-        # data = (data * 2.55).astype(np.uint8)  # Scale to 0-255
+        data = np.where(data == -1, 205, data)  # Unknown cells in ROS1 are 205 in PGM
+        data = np.clip(data, 0, 100)  # Clip values to 0-100 (move_base costmap range)
+        data = (data * 2.55).astype(np.uint8)  # Scale to 0-255 for PGM
 
         # Write the PGM file
         with open(filename, "wb") as pgm_file:
@@ -293,12 +281,12 @@ class GlobalCostmapBuilder(Node):
             yaml.dump(yaml_content, yaml_file, default_flow_style=False)
 
 
-def main(args=None):
-    rclpy.init(args=args)
-    node = GlobalCostmapBuilder()
-    rclpy.spin(node)
-    rclpy.shutdown()
-
+def main():
+    try:
+        GlobalCostmapBuilder()  # Instantiate the node, which sets up subscribers, publishers, etc.
+        rospy.spin()
+    except rospy.ROSInterruptException:
+        pass
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,34 @@
+# slam_toolbox_params.yaml
+slam_toolbox:
+  odom_frame: <namespace>/odom
+  map_frame: <namespace>/map
+  base_frame: <namespace>/base_link
+  scan_topic: <scan_topic>
+  mode: mapping              # From slam_toolbox.mode
+
+  # General Parameters
+  use_scan_matching: true    # From slam_toolbox.use_scan_matching
+  minimum_travel_distance: 0.2  # From slam_toolbox.minimum_travel_distance
+  minimum_travel_heading: 0.1   # From slam_toolbox.minimum_travel_heading
+  scan_buffer_size: 10       # From slam_toolbox.scan_buffer_size
+  scan_buffer_maximum_scan_distance: 0.5  # From slam_toolbox.scan_buffer_maximum_scan_distance
+  loop_search_maximum_distance: 3.0       # From slam_toolbox.loop_search_maximum_distance
+  do_loop_closing: true      # From slam_toolbox.do_loop_closing
+  loop_match_minimum_chain_size: 10  # From slam_toolbox.loop_match_minimum_chain_size
+  loop_match_maximum_variance_coarse: 3.0  # From slam_toolbox.loop_match_maximum_variance_coarse
+  loop_match_minimum_response_coarse: 0.35  # From slam_toolbox.loop_match_minimum_response_coarse
+  loop_match_minimum_response_fine: 0.45    # From slam_toolbox.loop_match_minimum_response_fine
+
+  # Correlation Parameters
+  correlation_search_space_dimension: 0.5   # From slam_toolbox.correlation_search_space_dimension
+  correlation_search_space_resolution: 0.01  # From slam_toolbox.correlation_search_space_resolution
+  loop_search_space_dimension: 1.0          # From slam_toolbox.loop_search_space_dimension
+  loop_search_space_resolution: 0.05        # From slam_toolbox.loop_search_space_resolution
+
+  # Scan Matcher Parameters
+  distance_variance_penalty: 0.5  # From slam_toolbox.distance_variance_penalty
+  angle_variance_penalty: 1.0     # From slam_toolbox.angle_variance_penalty
+  coarse_search_angle_offset: 0.349  # From slam_toolbox.coarse_search_angle_offset
+  coarse_angle_resolution: 0.0349    # From slam_toolbox.coarse_angle_resolution
+  minimum_angle_penalty: 0.9         # From slam_toolbox.minimum_angle_penalty
+  minimum_distance_penalty: 0.5      # From slam_toolbox.minimum_distance_penalty
