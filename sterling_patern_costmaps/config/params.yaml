@@ -1,6 +1,6 @@
-panther/sterling: # Make sure namespace matches
-  local_costmap_builder:
-    ros__parameters:
+panther:
+  sterling:
+    local_costmap_builder:
       sub_topic_camera: "/panther/oakd2/oak_d_node/rgb/image_rect_color"
       sub_topic_local_costmap: "/panther/local_costmap/costmap"
       pub_topic_local_costmap: "/panther/sterling/local_costmap"
@@ -23,9 +23,7 @@ panther/sterling: # Make sure namespace matches
           -1.6782341544478678,
         ]
 
-  global_costmap_builder:
-    ros__parameters:
+    global_costmap_builder:
       sub_topic_local_costmap: "/panther/sterling/local_costmap"
       sub_topic_global_costmap: "/panther/global_costmap/costmap"
-      # True, if you want to keep maximum values of the costmap. False, if you want to override existing data.
-      use_maximum: False
+      use_maximum: false
