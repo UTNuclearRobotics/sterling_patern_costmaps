@@ -46,6 +46,6 @@
   <node if="$(arg use_rviz)" name="rviz_mapping" pkg="rviz" type="rviz" output="screen"
         args="-d $(arg rviz_config_file)">
     <param name="use_sim_time" value="$(arg use_sim_time)" />
-    <remap from="/goal_pose" to="/panther/goal_pose"/>
+    <remap from="/goal_pose" to="/panther/sterling/move_base_simple/goal"/>
   </node>
 </launch>

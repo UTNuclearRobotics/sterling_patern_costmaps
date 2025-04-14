@@ -4,17 +4,40 @@
   <name>sterling_patern_costmaps</name>
   <version>0.1.0</version>
   <description>Package for converting sterling/patern output into ROS costmaps</description>
-  <maintainer email="asharp@utexas.edu">asharp</maintainer>
+  <maintainer email="nick.chan@utexas.edu">nchan</maintainer>
   <license>TODO: License declaration</license>
 
-  <!-- ROS1 Build and Runtime Dependencies -->
+  <!-- Build tool for ROS1 -->
   <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>rospy</build_depend>
-  <exec_depend>rospy</exec_depend>
 
-  <!-- Test Dependencies -->
-  <!-- Error in the line below -->
-  <!-- <test_depend>roslint</test_depend> -->
+  <!-- Build dependencies (needed for building the package) -->
+  <build_depend>rospy</build_depend>
+  <build_depend>nav_msgs</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>std_srvs</build_depend>
+  <build_depend>tf</build_depend>
+
+  <!-- Run dependencies (needed at runtime) -->
+  <run_depend>rospy</run_depend>
+  <run_depend>nav_msgs</run_depend>
+  <run_depend>sensor_msgs</run_depend>
+  <run_depend>std_srvs</run_depend>
+  <run_depend>tf</run_depend>
+  <run_depend>move_base</run_depend>
+  <run_depend>costmap_2d</run_depend>
+  <run_depend>navfn</run_depend>
+  <run_depend>dwa_local_planner</run_depend>
+  <run_depend>slam_toolbox</run_depend>
+  <run_depend>map_server</run_depend>
+  <run_depend>robot_state_publisher</run_depend>
+  <run_depend>rviz</run_depend>
+
+  <!-- Test dependencies -->
+  <test_depend>roslint</test_depend>
   <test_depend>rostest</test_depend>
 
+  <!-- Export for catkin -->
+  <export>
+    <!-- No specific exports needed for a Python package -->
+  </export>
 </package>
