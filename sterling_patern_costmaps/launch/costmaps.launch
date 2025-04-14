@@ -1,30 +1,51 @@
 <launch>
-  <!-- Robot State Publisher -->
-  <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher">
-    <rosparam file="$(find sterling_patern_costmaps)/config/robot_state_publisher_params.yaml" command="load"/>
-  </node>
+  <!-- Launch Arguments -->
+  <arg name="namespace" default="panther/sterling" doc="Add namespace to all launched nodes."/>
+  <arg name="use_sim_time" default="false" doc="Use simulation (Gazebo) clock if true."/>
+  <arg name="use_rviz" default="true" doc="Whether to start RViz."/>
+  <arg name="rviz_config_file" default="$(find sterling_patern_costmaps)/config/panther_sim.rviz" doc="Full path to the RVIZ config file to use"/>
 
-  <!-- SLAM Toolbox -->
-  <node name="slam_toolbox" pkg="slam_toolbox" type="sync_slam_toolbox_node">
-    <rosparam file="$(find sterling_patern_costmaps)/config/slam_toolbox_params.yaml" command="load"/>
-  </node>
+  <!-- Set use_sim_time parameter -->
+  <param name="use_sim_time" value="$(arg use_sim_time)" />
 
-  <!-- Map Server -->
-  <node name="map_server" pkg="map_server" type="map_server">
-    <rosparam file="$(find sterling_patern_costmaps)/config/map_server_params.yaml" command="load"/>
-  </node>
+  <!-- Group with Namespace -->
+  <group ns="$(arg namespace)">
+    <!-- Move Base -->
+    <node name="move_base" pkg="move_base" type="move_base" output="screen">
+      <rosparam file="$(find sterling_patern_costmaps)/config/move_base_params.yaml" command="load"/>
+      <rosparam file="$(find sterling_patern_costmaps)/config/costmap_common_params.yaml" command="load" ns="global_costmap"/>
+      <rosparam file="$(find sterling_patern_costmaps)/config/costmap_common_params.yaml" command="load" ns="local_costmap"/>
+      <rosparam file="$(find sterling_patern_costmaps)/config/global_costmap_params.yaml" command="load"/>
+      <rosparam file="$(find sterling_patern_costmaps)/config/local_costmap_params.yaml" command="load"/>
+    </node>
 
-  <!-- Move Base -->
-  <node name="move_base" pkg="move_base" type="move_base" output="screen">
-    <rosparam file="$(find sterling_patern_costmaps)/config/move_base_params.yaml" command="load"/>
-    <rosparam file="$(find sterling_patern_costmaps)/config/costmap_common_params.yaml" command="load" ns="global_costmap"/>
-    <rosparam file="$(find sterling_patern_costmaps)/config/costmap_common_params.yaml" command="load" ns="local_costmap"/>
-    <rosparam file="$(find sterling_patern_costmaps)/config/global_costmap_params.yaml" command="load"/>
-    <rosparam file="$(find sterling_patern_costmaps)/config/local_costmap_params.yaml" command="load"/>
-  </node>
+    <!-- SLAM Toolbox -->
+    <node name="slam_toolbox" pkg="slam_toolbox" type="sync_slam_toolbox_node" output="screen">
+      <rosparam file="$(find sterling_patern_costmaps)/config/slam_toolbox_params.yaml" command="load"/>
+    </node>
 
-  <!-- Custom Nodes -->
-  <node name="global_costmap_builder" pkg="sterling_patern_costmaps" type="global_costmap_builder.py"/>
-  <node name="local_costmap_builder" pkg="sterling_patern_costmaps" type="local_costmap_builder.py"/>
+    <!-- Map Server -->
+    <node name="map_server" pkg="map_server" type="map_server" output="screen">
+      <rosparam file="$(find sterling_patern_costmaps)/config/map_server_params.yaml" command="load"/>
+    </node>
+
+    <!-- Robot State Publisher (optional, if needed) -->
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" output="screen">
+      <rosparam file="$(find sterling_patern_costmaps)/config/robot_state_publisher_params.yaml" command="load"/>
+    </node>
+
+    <!-- Custom Nodes -->
+    <node name="local_costmap_builder" pkg="sterling_patern_costmaps" type="local_costmap_builder.py" output="screen"/>
+    <node name="global_costmap_builder" pkg="sterling_patern_costmaps" type="global_costmap_builder.py" output="screen"/>
+  </group>
+
+  <!-- Load Parameters for Custom Nodes -->
   <rosparam file="$(find sterling_patern_costmaps)/config/custom_nodes_params.yaml" command="load"/>
+
+  <!-- RViz -->
+  <node if="$(arg use_rviz)" name="rviz_mapping" pkg="rviz" type="rviz" output="screen"
+        args="-d $(arg rviz_config_file)">
+    <param name="use_sim_time" value="$(arg use_sim_time)" />
+    <remap from="/goal_pose" to="/panther/goal_pose"/>
+  </node>
 </launch>
