@@ -20,6 +20,12 @@ RUN apt-get update && apt-get install -y \
     ros-noetic-catkin \
     git \
     openssh-client \
+    ros-noetic-amcl \
+    ros-noetic-xacro \
+    ros-noetic-joint-state-publisher \
+    ros-noetic-rosserial-python \
+    ros-noetic-hls-lfcd-lds-driver \
+    ros-noetic-turtlebot3-msgs \
     ros-noetic-nav-msgs \
     ros-noetic-sensor-msgs \
     ros-noetic-std-srvs \
@@ -85,46 +91,46 @@ RUN --mount=type=ssh git clone --branch noetic/working_dockerfile --depth=1 git@
 
 # Build the workspace
 WORKDIR /root/ros_ws
-RUN source /opt/ros/noetic/setup.bash && catkin_make -j${NUM_CORES}
+# RUN source /opt/ros/noetic/setup.bash && catkin_make -j${NUM_CORES}
 
 # Source the workspace in bashrc
 RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc \
     && echo "source /root/catkin_ws/devel/setup.bash" >> ~/.bashrc \
     && source ~/.bashrc
 
-# Create entrypoint script
-RUN echo '#!/bin/bash' > /usr/bin/entrypoint.sh \
-    && echo 'set -e' >> /usr/bin/entrypoint.sh \
-    && echo '# Adjust UID and GID if provided' >> /usr/bin/entrypoint.sh \
-    && echo 'if [ -n "$UID" ] && [ -n "$GID" ]; then' >> /usr/bin/entrypoint.sh \
-    && echo '  groupmod -g $GID user || groupadd -g $GID user' >> /usr/bin/entrypoint.sh \
-    && echo '  usermod -u $UID -g $GID user || useradd -m -u $UID -g $GID user' >> /usr/bin/entrypoint.sh \
-    && echo '  export HOME=/home/user' >> /usr/bin/entrypoint.sh \
-    && echo '  exec gosu user "$@"' >> /usr/bin/entrypoint.sh \
-    && echo 'fi' >> /usr/bin/entrypoint.sh \
-    && echo '# Source ROS environment' >> /usr/bin/entrypoint.sh \
-    && echo 'source /opt/ros/noetic/setup.bash' >> /usr/bin/entrypoint.sh \
-    && echo 'source /root/ros_ws/devel/setup.bash' >> /usr/bin/entrypoint.sh \
-    && echo 'exec "$@"' >> /usr/bin/entrypoint.sh \
-    && chmod +x /usr/bin/entrypoint.sh
+# # Create entrypoint script
+# RUN echo '#!/bin/bash' > /usr/bin/entrypoint.sh \
+#     && echo 'set -e' >> /usr/bin/entrypoint.sh \
+#     && echo '# Adjust UID and GID if provided' >> /usr/bin/entrypoint.sh \
+#     && echo 'if [ -n "$UID" ] && [ -n "$GID" ]; then' >> /usr/bin/entrypoint.sh \
+#     && echo '  groupmod -g $GID user || groupadd -g $GID user' >> /usr/bin/entrypoint.sh \
+#     && echo '  usermod -u $UID -g $GID user || useradd -m -u $UID -g $GID user' >> /usr/bin/entrypoint.sh \
+#     && echo '  export HOME=/home/user' >> /usr/bin/entrypoint.sh \
+#     && echo '  exec gosu user "$@"' >> /usr/bin/entrypoint.sh \
+#     && echo 'fi' >> /usr/bin/entrypoint.sh \
+#     && echo '# Source ROS environment' >> /usr/bin/entrypoint.sh \
+#     && echo 'source /opt/ros/noetic/setup.bash' >> /usr/bin/entrypoint.sh \
+#     && echo 'source /root/ros_ws/devel/setup.bash' >> /usr/bin/entrypoint.sh \
+#     && echo 'exec "$@"' >> /usr/bin/entrypoint.sh \
+#     && chmod +x /usr/bin/entrypoint.sh
 
-# Install gosu for UID/GID switching
-RUN apt-get update && apt-get install -y gosu \
-    && rm -rf /var/lib/apt/lists/*
+# # Install gosu for UID/GID switching
+# RUN apt-get update && apt-get install -y gosu \
+#     && rm -rf /var/lib/apt/lists/*
 
-    RUN mkdir -p /root/dependency_ws/src
-    WORKDIR /root/dependency_ws/src
-    RUN --mount=type=ssh git clone https://github.com/ROBOTIS-GIT/turtlebot3.git \
-        && cd turtlebot3 \
-        && git checkout noetic
-    RUN --mount=type=ssh git clone https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git \
-        && cd turtlebot3_simulations \
-        && git checkout noetic
-    WORKDIR /root/dependency_ws
-    RUN rosdep update
-    RUN rosdep install --from-paths src --ignore-src -r -y
-    RUN source /opt/ros/noetic/setup.bash && catkin_make
-    RUN echo "export TURTLEBOT3_MODEL=waffle" >> ~/.bashrc
+RUN mkdir -p /root/dependency_ws/src
+WORKDIR /root/dependency_ws/src
+RUN --mount=type=ssh git clone https://github.com/ROBOTIS-GIT/turtlebot3.git \
+    && cd turtlebot3 \
+    && git checkout noetic
+RUN --mount=type=ssh git clone https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git \
+    && cd turtlebot3_simulations \
+    && git checkout noetic
+WORKDIR /root/dependency_ws
+RUN rosdep update
+RUN rosdep install --from-paths src --ignore-src -r -y
+RUN source /opt/ros/noetic/setup.bash && catkin_make
+RUN echo "export TURTLEBOT3_MODEL=waffle" >> ~/.bashrc
 
 # Set shell to login mode and default command
 SHELL ["/bin/bash", "-l", "-c"]

@@ -10,7 +10,7 @@ start:
 	@echo "Starting Docker container..."
 	@xhost +si:localuser:root
 	@echo "Added docker xhost permissions"
-	docker compose -f ./docker/docker-compose.yaml up -d
+	docker compose -f ./docker/docker-compose.yaml up -d --remove-orphans
 
 stop:
 	@echo "Stopping Docker container..."
