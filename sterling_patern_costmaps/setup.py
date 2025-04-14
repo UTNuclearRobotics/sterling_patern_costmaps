@@ -2,40 +2,10 @@ from setuptools import find_packages, setup
 import glob
 import os
 
-package_name = "sterling_patern_costmaps"
-lib_files = [f for f in glob.glob("sterling_patern_costmaps/lib/sterling_patern_costmaps/**/*", recursive=True) if os.path.isfile(f)]
-
 setup(
-    name=package_name,
-    version="0.1.0",  # Updated to match package.xml
-    packages=find_packages(exclude=["test"]),
-    data_files=[
-        (os.path.join("share", package_name), ["package.xml"]),
-        (os.path.join("share", package_name, "config"), [os.path.join("config", "params.yaml")]),
-        (os.path.join("share", package_name, "config"), [os.path.join("config", "panther_sim.rviz")]),
-        (os.path.join("share", package_name, "launch"), [os.path.join("launch", "costmaps.launch.py")]),
-        (os.path.join("lib", package_name), lib_files),
-    ],
-    install_requires=[
-        "setuptools",
-        "opencv-python",
-        "numpy",
-        "joblib",
-        "scikit-learn",
-        "torch",
-        "pyyaml",
-        "tensorflow",
-        "torchvision",
-    ],
-    zip_safe=True,
-    maintainer="nchan",
-    maintainer_email="nick.chan@utexas.edu",
-    description="Package for converting sterling/patern output into ROS costmaps",  # Updated to match package.xml
-    license="TODO: License declaration",
-    entry_points={
-        "console_scripts": [
-            "global_costmap_builder = sterling_patern_costmaps.nodes.global_costmap_builder:main",
-            "local_costmap_builder = sterling_patern_costmaps.nodes.local_costmap_builder:main",
-        ],
-    },
+    name='sterling_patern_costmaps',
+    version='0.1.0',
+    packages=find_packages(),  # This will include sterling_patern_costmaps from the folder
+    install_requires=[],
+    zip_safe=False,
 )

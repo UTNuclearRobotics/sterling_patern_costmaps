@@ -37,6 +37,7 @@ RUN apt-get update && apt-get install -y \
 
 # Setup workspace
 RUN mkdir -p /ros_ws/src
+RUN mkdir -p /ros1_ws/src
 WORKDIR /ros_ws
 RUN /bin/bash -c "source /opt/ros/noetic/setup.bash"
 

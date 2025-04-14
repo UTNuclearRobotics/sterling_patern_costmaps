@@ -14,6 +14,7 @@ services:
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
     volumes:
+      - ../sterling_patern_costmaps:/root/ros1_ws/src/sterling_patern_costmaps
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ./ros_ws:/ros_ws
     network_mode: host

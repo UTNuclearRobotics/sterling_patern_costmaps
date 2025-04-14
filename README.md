@@ -14,7 +14,7 @@ This package will install and bring up all the necessary components for running 
 1) __Clone Repository__
    
    ```shell
-   git clone -b patern/husarion-packages git@github.com:UTNuclearRobotics/sterling_sim_docker.git
+   git clone -b noetic/working_dockerfile git@github.com:UTNuclearRobotics/sterling_patern_costmaps.git
    ```
 3) __Setup SSH Environment__
 

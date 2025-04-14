@@ -10,10 +10,11 @@
   <!-- ROS1 Build and Runtime Dependencies -->
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>rospy</build_depend>
-  <run_depend>rospy</run_depend>
+  <exec_depend>rospy</exec_depend>
 
   <!-- Test Dependencies -->
-  <test_depend>roslint</test_depend>
+  <!-- Error in the line below -->
+  <!-- <test_depend>roslint</test_depend> -->
   <test_depend>rostest</test_depend>
 
 </package>
