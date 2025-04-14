@@ -40,7 +40,7 @@
   </group>
 
   <!-- Load Parameters for Custom Nodes -->
-  <rosparam file="$(find sterling_patern_costmaps)/config/custom_nodes_params.yaml" command="load"/>
+  <rosparam file="$(find sterling_patern_costmaps)/config/params.yaml" command="load"/>
 
   <!-- RViz -->
   <node if="$(arg use_rviz)" name="rviz_mapping" pkg="rviz" type="rviz" output="screen"
