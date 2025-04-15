@@ -52,8 +52,8 @@ This package will install and bring up all the necessary components for running 
     - uvis.pt
 
     ```shell
-    colcon build
-    run_sterling_costmap
+    catkin_make
+    run_sterling_patern_costmap
     ```
 
 - 🐳 Run Gazebo simulation. Pick one. This should bring up a window of the Husarion Panther in a boxed in area with terrain regions and a U-shaped sidewalk.
@@ -67,7 +67,7 @@ This package will install and bring up all the necessary components for running 
 - 🐳 Run the navigation stack for the Husarion Panther.
 
     ```shell
-    run_nav2
+    run_nav
     ```
 
 - Stop the container.
