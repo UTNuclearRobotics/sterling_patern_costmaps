@@ -3,7 +3,7 @@
   sub_topic_local_costmap: "/panther/local_costmap/costmap"
   pub_topic_local_costmap: "/panther/sterling/local_costmap"
   pub_topic_local_costmap_hz: 1.0
-  model_path: "/root/ros_ws/devel/sterling_patern_costmaps/models"
+  model_path: "/root/ros_ws/src/sterling_patern_costmaps/models/"
   # True to run the adapted Patern model, looks for _adapted.pt files in the model folder
   adapted: true
   # True to allow model to label obstacles from terrain

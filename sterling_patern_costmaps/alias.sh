@@ -1,8 +1,7 @@
 # Commands to run inside the container
 
 ### Step 1: Choose the terrain resolution you want ot run the Gazebo world
-alias run_gazebo_low='roslaunch sterling_gazebo sidewalks.launch.py high_res:=false namespace:=panther'
-alias run_gazebo_high='roslaunch sterling_gazebo sidewalks.launch.py high_res:=true namespace:=panther'
+alias run_gazebo='roslaunch sterling_patern_costmaps launch_turtlebot3.launch'
 
 ### Step 2: Launch Nav2
 # Sterling parameters
