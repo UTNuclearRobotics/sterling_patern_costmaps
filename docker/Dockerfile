@@ -119,7 +119,16 @@ RUN echo "export TURTLEBOT3_MODEL=waffle" >> ~/.bashrc
 RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc \
     && echo "source /root/dependency_ws/devel/setup.bash" >> ~/.bashrc \
     && source ~/.bashrc
-    
+
+# copy the entrypoint into the image
+COPY docker/entrypoint.sh /usr/bin/entrypoint.sh
+RUN chmod +x /usr/bin/entrypoint.sh
+
+# run this script on startup
+ENTRYPOINT /usr/bin/entrypoint.sh
+
+WORKDIR /root/ros_ws
+
 # Set shell to login mode and default command
 SHELL ["/bin/bash", "-l", "-c"]
 CMD ["bash"]
