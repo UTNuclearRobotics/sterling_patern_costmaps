@@ -52,7 +52,7 @@ This package will install and bring up all the necessary components for running 
     - uvis.pt
 
     ```shell
-    colcon build
+    catkin_make
     run_sterling_costmap
     ```
 
