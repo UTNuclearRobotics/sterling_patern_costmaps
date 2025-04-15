@@ -3,20 +3,20 @@
   <arg name="model" default="burger" />
 
   <!-- Optional namespace for scoping all nodes -->
-  <arg name="namespace" default="panther" />
+  <arg name="namespace" default="" />
 
   <!-- Export the model as environment variable -->
   <env name="TURTLEBOT3_MODEL" value="$(arg model)" />
 
   <!-- Launch Gazebo simulation under namespace -->
-  <group ns="$(arg namespace)">
-    <include file="$(find turtlebot3_gazebo)/launch/turtlebot3_world.launch">
+  <group>
+    <include file="$(find sterling_patern_costmaps)/launch/turtlebot_gazebo.launch">
       <arg name="model" value="$(arg model)" />
     </include>
   </group>
 
   <!-- Launch TurtleBot3 navigation under namespace -->
-  <group ns="$(arg namespace)">
+  <group>
     <include file="$(find sterling_patern_costmaps)/launch/turtle_nav.launch">
     </include>
   </group>

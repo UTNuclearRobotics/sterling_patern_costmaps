@@ -12,7 +12,7 @@
   <arg name="initial_pose_y" default="0.0" />
   <arg name="initial_pose_a" default="0.0" />
 
-  <group ns="$(arg namespace)">
+  <group if="$(eval namespace != '')" ns="$(arg namespace)">
     <!-- Turtlebot3 -->
     <include file="$(find turtlebot3_bringup)/launch/turtlebot3_remote.launch">
       <arg name="model" value="$(arg model)" />
@@ -39,8 +39,39 @@
 
     <!-- rviz -->
     <group if="$(arg open_rviz)"> 
-      <node pkg="rviz" type="rviz" name="rviz" required="true"
-            args="-d $(find turtlebot3_navigation)/rviz/turtlebot3_navigation.rviz"/>
+      <node pkg="rviz" type="rviz" name="rviz" required="true"/>
     </group>
   </group>
+
+  <group unless="$(eval namespace != '')">
+    <!-- Turtlebot3 -->
+    <include file="$(find turtlebot3_bringup)/launch/turtlebot3_remote.launch">
+      <arg name="model" value="$(arg model)" />
+    </include>
+
+    <!-- Map server -->
+    <node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)"/>
+
+    <!-- AMCL -->
+    <include file="$(find sterling_patern_costmaps)/launch/amcl.launch">
+      <arg name="scan_topic" value="$(arg scan_topic)" />
+      <arg name="initial_pose_x" value="$(arg initial_pose_x)" />
+      <arg name="initial_pose_y" value="$(arg initial_pose_y)" />
+      <arg name="initial_pose_a" value="$(arg initial_pose_a)" />
+      <arg name="namespace" value="$(arg namespace)" />
+    </include>
+
+    <!-- move_base -->
+    <include file="$(find sterling_patern_costmaps)/launch/move_base.launch">
+      <arg name="model" value="$(arg model)" />
+      <arg name="move_forward_only" value="$(arg move_forward_only)"/>
+      <arg name="namespace" value="$(arg namespace)" />
+    </include>
+
+    <!-- rviz -->
+    <group if="$(arg open_rviz)"> 
+      <node pkg="rviz" type="rviz" name="rviz" required="true"/>
+    </group>
+  </group>
+
 </launch>
