@@ -1,9 +1,9 @@
-/panther/sterling/local_costmap_builder:
+/sterling/local_costmap_builder:
   sub_topic_camera: "/oakd2/oak_d_node/rgb/image_rect_color"
   sub_topic_local_costmap: "/local_costmap/costmap"
   pub_topic_local_costmap: "/sterling/local_costmap"
   pub_topic_local_costmap_hz: 1.0
-  model_path: "/root/ros_ws/src/sterling_patern_costmaps/models/"
+  model_path: "/root/ros_ws/src/sterling_patern_costmaps/models"
   # True to run the adapted Patern model, looks for _adapted.pt files in the model folder
   adapted: true
   # True to allow model to label obstacles from terrain

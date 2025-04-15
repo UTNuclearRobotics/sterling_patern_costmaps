@@ -9,15 +9,28 @@
   <env name="TURTLEBOT3_MODEL" value="$(arg model)" />
 
   <!-- Launch Gazebo simulation under namespace -->
-  <group>
+  <group if="$(eval namespace != '')" ns="$(arg namespace)">
     <include file="$(find sterling_patern_costmaps)/launch/turtlebot_gazebo.launch">
       <arg name="model" value="$(arg model)" />
+      <arg name="namespace" value="$(arg namespace)" />
+    </include>
+  </group>
+  <group unless="$(eval namespace != '')">
+    <include file="$(find sterling_patern_costmaps)/launch/turtlebot_gazebo.launch">
+      <arg name="model" value="$(arg model)" />
+      <arg name="namespace" value="" />
     </include>
   </group>
 
   <!-- Launch TurtleBot3 navigation under namespace -->
-  <group>
+  <group if="$(eval namespace != '')" ns="$(arg namespace)">
     <include file="$(find sterling_patern_costmaps)/launch/turtle_nav.launch">
+      <arg name="namespace" value="$(arg namespace)" />
+    </include>
+  </group>
+  <group unless="$(eval namespace != '')">
+    <include file="$(find sterling_patern_costmaps)/launch/turtle_nav.launch">
+      <arg name="namespace" value="" />
     </include>
   </group>
 </launch>

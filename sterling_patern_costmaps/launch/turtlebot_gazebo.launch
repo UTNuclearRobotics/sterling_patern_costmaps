@@ -18,20 +18,43 @@
 
   <arg name="robot_name" default="burger" />
 
-  <!-- Namespace-scoped robot description and spawn -->
+  <!-- Namespace-scoped robot description, spawn, and parameters -->
   <group if="$(eval namespace != '')" ns="$(arg namespace)">
+    <!-- Robot description -->
     <param name="robot_description"
            command="$(find xacro)/xacro --inorder $(find turtlebot3_description)/urdf/turtlebot3_$(arg model).urdf.xacro" />
 
+    <!-- Spawn robot in Gazebo -->
     <node pkg="gazebo_ros" type="spawn_model" name="spawn_urdf"
           args="-urdf -model $(arg robot_name) -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) -param robot_description" />
+
+    <!-- Define your parameters with namespace -->
+    <rosparam>
+      odom_frame: $(arg namespace)/odom
+      map_frame: $(arg namespace)/map
+      base_frame: $(arg namespace)/base_link
+      scan_topic: $(arg namespace)/scan
+      mode: mapping
+    </rosparam>
   </group>
 
+  <!-- Non-namespaced case -->
   <group unless="$(eval namespace != '')">
+    <!-- Robot description -->
     <param name="robot_description"
            command="$(find xacro)/xacro --inorder $(find turtlebot3_description)/urdf/turtlebot3_$(arg model).urdf.xacro" />
 
+    <!-- Spawn robot in Gazebo -->
     <node pkg="gazebo_ros" type="spawn_model" name="spawn_urdf"
           args="-urdf -model $(arg robot_name) -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) -param robot_description" />
+
+    <!-- Define your parameters without namespace -->
+    <rosparam>
+      odom_frame: odom
+      map_frame: map
+      base_frame: base_link
+      scan_topic: scan
+      mode: mapping
+    </rosparam>
   </group>
 </launch>
