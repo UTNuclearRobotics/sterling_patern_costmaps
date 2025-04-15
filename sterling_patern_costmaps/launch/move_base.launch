@@ -4,35 +4,67 @@
   <arg name="cmd_vel_topic" default="/cmd_vel" />
   <arg name="odom_topic" default="odom" />
   <arg name="move_forward_only" default="false"/>
-  <arg name="namespace" default="hi" />
+  <arg name="namespace" default="" doc="Optional namespace for multi-robot setups"/>
 
   <group if="$(eval namespace != '')" ns="$(arg namespace)">
     <!-- move_base -->
     <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
       <param name="base_local_planner" value="dwa_local_planner/DWAPlannerROS" />
-      <rosparam file="$(find turtlebot3_navigation)/param/costmap_common_params_$(arg model).yaml" command="load" ns="global_costmap" />
-      <rosparam file="$(find turtlebot3_navigation)/param/costmap_common_params_$(arg model).yaml" command="load" ns="local_costmap" />
-      <rosparam file="$(find turtlebot3_navigation)/param/local_costmap_params.yaml" command="load" />
-      <rosparam file="$(find turtlebot3_navigation)/param/global_costmap_params.yaml" command="load" />
-      <rosparam file="$(find turtlebot3_navigation)/param/move_base_params.yaml" command="load" />
-      <rosparam file="$(find turtlebot3_navigation)/param/dwa_local_planner_params_$(arg model).yaml" command="load" />
+      <!-- Load SPEED parameters -->
+      <rosparam file="$(find sterling_patern_costmaps/config/costmap_common_params_$(arg model).yaml" command="load" ns="global_costmap" />
+      <rosparam file="$(find sterling_patern_costmaps)/config/costmap_common_params_$(arg model).yaml" command="load" ns="local_costmap" />
+      <rosparam file="$(find sterling_patern_costmaps)/config/local_costmap_params.yaml" command="load" />
+      <rosparam file="$(find sterling_patern_costmaps)/config/global_costmap_params.yaml" command="load" />
+      <rosparam file="$(find sterling_patern_costmaps)/config/move_base_params.yaml" command="load" />
+      # <rosparam file="$(find turtlebot3_navigation)/param/dwa_local_planner_params.yaml" command="load" />
+      <!-- Override global costmap parameters for namespace -->
+      <param name="global_costmap/global_frame" value="/$(arg namespace)/map"/>
+      <param name="global_costmap/robot_base_frame" value="/$(arg namespace)/base_footprint"/>
+      <param name="global_costmap/static_map" value="true"/>
+      <param name="global_costmap/rolling_window" value="false"/>
+      <!-- Override sensor source for global costmap -->
+      <rosparam ns="global_costmap">
+        observation_sources: laser_scan_sensor
+        laser_scan_sensor:
+          sensor_frame: /$(arg namespace)/base_scan
+          data_type: LaserScan
+          topic: /$(arg namespace)/scan
+          marking: true
+          clearing: true
+      </rosparam>
+      <!-- Override sensor source for local costmap -->
+      <rosparam ns="local_costmap">
+        observation_sources: laser_scan_sensor
+        laser_scan_sensor:
+          sensor_frame: /$(arg namespace)/base_scan
+          data_type: LaserScan
+          topic: /$(arg namespace)/scan
+          marking: true
+          clearing: true
+      </rosparam>
+      <!-- Remaps -->
       <remap from="cmd_vel" to="$(arg cmd_vel_topic)"/>
       <remap from="odom" to="$(arg odom_topic)"/>
       <param name="DWAPlannerROS/min_vel_x" value="0.0" if="$(arg move_forward_only)" />
     </node>
   </group>
 
-
   <group unless="$(eval namespace != '')">
     <!-- move_base -->
     <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
       <param name="base_local_planner" value="dwa_local_planner/DWAPlannerROS" />
-      <rosparam file="$(find turtlebot3_navigation)/param/costmap_common_params_$(arg model).yaml" command="load" ns="global_costmap" />
-      <rosparam file="$(find turtlebot3_navigation)/param/costmap_common_params_$(arg model).yaml" command="load" ns="local_costmap" />
-      <rosparam file="$(find turtlebot3_navigation)/param/local_costmap_params.yaml" command="load" />
-      <rosparam file="$(find turtlebot3_navigation)/param/global_costmap_params.yaml" command="load" />
-      <rosparam file="$(find turtlebot3_navigation)/param/move_base_params.yaml" command="load" />
+      <rosparam file="$(find sterling_patern_costmaps)/config/costmap_common_params.yaml" command="load" ns="global_costmap" />
+      <rosparam file="$(find sterling_patern_costmaps)/config/costmap_common_params.yaml" command="load" ns="local_costmap" />
+      <rosparam file="$(find sterling_patern_costmaps)/config/local_costmap_params.yaml" command="load" />
+      <rosparam file="$(find sterling_patern_costmaps)/config/global_costmap_params.yaml" command="load" />
+      <rosparam file="$(find sterling_patern_costmaps)/config/move_base_params.yaml" command="load" />
       <rosparam file="$(find turtlebot3_navigation)/param/dwa_local_planner_params_$(arg model).yaml" command="load" />
+      <!-- Ensure correct frame IDs -->
+      <param name="global_costmap/global_frame" value="map"/>
+      <param name="global_costmap/robot_base_frame" value="base_footprint"/>
+      <param name="global_costmap/static_map" value="true"/>
+      <param name="global_costmap/rolling_window" value="false"/>
+      <!-- Remaps -->
       <remap from="cmd_vel" to="$(arg cmd_vel_topic)"/>
       <remap from="odom" to="$(arg odom_topic)"/>
       <param name="DWAPlannerROS/min_vel_x" value="0.0" if="$(arg move_forward_only)" />

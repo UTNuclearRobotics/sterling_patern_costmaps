@@ -8,8 +8,9 @@ cost_scaling_factor: 3.0     # From local_costmap.inflation_layer.cost_scaling_f
 
 observation_sources: scan
 scan:
+  sensor_frame: base_scan
   data_type: LaserScan
-  topic: <observation_topic>  # From local_costmap.obstacle_layer.scan.topic
+  topic: scan  # From local_costmap.obstacle_layer.scan.topic
   marking: true              # From local_costmap.obstacle_layer.scan.marking
   clearing: true             # From local_costmap.obstacle_layer.scan.clearing
   obstacle_range: 2.0        # From local_costmap.obstacle_layer.scan.obstacle_max_range

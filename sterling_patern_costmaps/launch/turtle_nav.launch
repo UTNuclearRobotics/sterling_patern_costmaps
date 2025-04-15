@@ -1,7 +1,7 @@
 <launch>
   <!-- Arguments -->
   <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
-  <arg name="map_file" default="$(find turtlebot3_navigation)/maps/map.yaml"/>
+  <arg name="map_file" default="$(find sterling_patern_costmaps)/config/map.yaml"/>
   <arg name="open_rviz" default="true"/>
   <arg name="move_forward_only" default="false"/>
   <arg name="namespace" default="" doc="Optional namespace for multi-robot setups"/>
@@ -19,7 +19,9 @@
     </include>
 
     <!-- Map server -->
-    <node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)"/>
+    <node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)">
+      <param name="frame_id" value="/$(arg namespace)/map"/>
+    </node>
 
     <!-- AMCL -->
     <include file="$(find sterling_patern_costmaps)/launch/amcl.launch">
@@ -35,6 +37,8 @@
       <arg name="model" value="$(arg model)" />
       <arg name="move_forward_only" value="$(arg move_forward_only)"/>
       <arg name="namespace" value="$(arg namespace)" />
+      <arg name="cmd_vel_topic" value="/$(arg namespace)/cmd_vel"/>
+      <arg name="odom_topic" value="/$(arg namespace)/odom"/>
     </include>
 
     <!-- rviz -->
@@ -50,7 +54,9 @@
     </include>
 
     <!-- Map server -->
-    <node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)"/>
+    <node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)">
+      <param name="frame_id" value="map"/>
+    </node>
 
     <!-- AMCL -->
     <include file="$(find sterling_patern_costmaps)/launch/amcl.launch">
@@ -66,6 +72,8 @@
       <arg name="model" value="$(arg model)" />
       <arg name="move_forward_only" value="$(arg move_forward_only)"/>
       <arg name="namespace" value="$(arg namespace)" />
+      <arg name="cmd_vel_topic" value="cmd_vel"/>
+      <arg name="odom_topic" value="odom"/>
     </include>
 
     <!-- rviz -->
@@ -73,5 +81,4 @@
       <node pkg="rviz" type="rviz" name="rviz" required="true"/>
     </group>
   </group>
-
 </launch>

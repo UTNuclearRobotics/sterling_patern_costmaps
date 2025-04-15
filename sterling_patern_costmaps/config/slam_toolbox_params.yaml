@@ -1,9 +1,9 @@
 # slam_toolbox_params.yaml
 slam_toolbox:
-  odom_frame: <namespace>/odom
-  map_frame: <namespace>/map
-  base_frame: <namespace>/base_link
-  scan_topic: <scan_topic>
+  odom_frame: odom
+  map_frame: map
+  base_frame: base_link
+  scan_topic: scan
   mode: mapping              # From slam_toolbox.mode
 
   # General Parameters
