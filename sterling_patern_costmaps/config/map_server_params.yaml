@@ -1,4 +1,0 @@
-# map_server_params.yaml
-map_server:
-  frame_id: <namespace>/map
-  yaml_filename: map.yaml    # From map_server.yaml_filename
