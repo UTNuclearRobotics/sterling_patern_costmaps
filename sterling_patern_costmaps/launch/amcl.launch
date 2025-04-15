@@ -4,7 +4,7 @@
   <arg name="initial_pose_x" default="0.0"/>
   <arg name="initial_pose_y" default="0.0"/>
   <arg name="initial_pose_a" default="0.0"/>
-  <arg name="namespace" default="panther" />
+  <arg name="namespace" default="" />
 
   <group if="$(eval namespace != '')" ns="$(arg namespace)">
     <!-- AMCL -->

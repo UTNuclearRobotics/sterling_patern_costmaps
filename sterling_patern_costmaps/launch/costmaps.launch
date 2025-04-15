@@ -1,9 +1,9 @@
 <launch>
   <!-- Launch Arguments -->
-  <arg name="namespace" default="panther/sterling" doc="Add namespace to all launched nodes."/>
+  <arg name="namespace" default="sterling" doc="Add namespace to all launched nodes."/>
   <arg name="use_sim_time" default="false" doc="Use simulation (Gazebo) clock if true."/>
   <arg name="use_rviz" default="true" doc="Whether to start RViz."/>
-  <arg name="rviz_config_file" default="$(find sterling_patern_costmaps)/config/panther_sim.rviz" doc="Full path to the RVIZ config file to use"/>
+  <!-- <arg name="rviz_config_file" default="$(find sterling_patern_costmaps)/config/panther_sim.rviz" doc="Full path to the RVIZ config file to use"/> -->
 
   <!-- Set use_sim_time parameter -->
   <param name="use_sim_time" value="$(arg use_sim_time)" />
@@ -46,6 +46,6 @@
   <node if="$(arg use_rviz)" name="rviz_mapping" pkg="rviz" type="rviz" output="screen"
         args="-d $(arg rviz_config_file)">
     <param name="use_sim_time" value="$(arg use_sim_time)" />
-    <remap from="/goal_pose" to="/panther/sterling/move_base_simple/goal"/>
+    <remap from="/goal_pose" to="/sterling/move_base_simple/goal"/>
   </node>
 </launch>

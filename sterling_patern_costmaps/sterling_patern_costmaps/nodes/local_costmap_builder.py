@@ -98,7 +98,7 @@ class LocalCostmapBuilder(object):
 
         # Lookup transform from base_link to get orientation
         try:
-            (trans, rot) = self.tf_listener.lookupTransform("panther/map", "panther/base_link", rospy.Time(0))
+            (trans, rot) = self.tf_listener.lookupTransform("map", "base_link", rospy.Time(0))
             euler = tf.transformations.euler_from_quaternion(rot)
             self.yaw_angle = euler[2]  # Yaw is the third element (roll, pitch, yaw)
             # rospy.loginfo(f"Yaw angle: {np.degrees(self.yaw_angle)}")
