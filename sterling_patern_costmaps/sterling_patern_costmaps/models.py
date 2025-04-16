@@ -101,7 +101,7 @@ class MultiScaleSpatialAttention(nn.Module):
     
 # create a pytorch model for the proprioception data
 class ProprioceptionModel(nn.Module):
-    def __init__(self, latent_size=64, p=0.05, input_dim=132):  # Default to 606
+    def __init__(self, latent_size=64, p=0.05, input_dim=138):  # Default to 606
         super(ProprioceptionModel, self).__init__()
         
         self.inertial_encoder = nn.Sequential(
