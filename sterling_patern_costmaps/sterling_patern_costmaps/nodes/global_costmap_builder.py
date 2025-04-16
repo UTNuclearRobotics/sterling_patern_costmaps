@@ -22,7 +22,7 @@ class GlobalCostmapBuilder(object):
         # Declare and get parameters using ROS1 parameter server
         self.sub_topic_local_costmap = rospy.get_param("~sub_topic_local_costmap", "/local_costmap/costmap")
         self.sub_topic_global_costmap = rospy.get_param("~sub_topic_global_costmap", "/global_costmap/costmap")
-        self.pub_topic_global_costmap = rospy.get_param("~pub_topic_global_costmap", "global_costmap")
+        self.pub_topic_global_costmap = rospy.get_param("~pub_topic_global_costmap", "/move_base/global_costmap/costmap")
         self.use_maximum = rospy.get_param("~use_maximum", False)
 
         # Print parameter values
