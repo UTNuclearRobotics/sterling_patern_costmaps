@@ -88,6 +88,11 @@
       </ode>
     </physics>
 
+    <!-- Load world -->
+     <include>
+       <uri>model://turtlebot3_world</uri>
+     </include>
+
     <!-- Scene settings -->
     <scene>
       <ambient>0.4 0.4 0.4 1</ambient>
