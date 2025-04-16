@@ -88,10 +88,107 @@
       </ode>
     </physics>
 
-    <!-- Load world -->
-     <include>
-       <uri>model://turtlebot3_world</uri>
-     </include>
+    <!-- Wall 1 -->
+    <model name="wall1">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>5 0.1 2.5</size>
+            </box>
+          </geometry>
+          <pose>0 0 1.25 0 0 0</pose>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>5 0.1 2.5</size>
+            </box>
+          </geometry>
+          <pose>0 0 1.25 0 0 0</pose>
+          <material>
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/White</name>
+            </script>
+          </material>
+        </visual>
+      </link>
+      <pose>0 2.5 0 0 0 0</pose>
+    </model>
+
+    <!-- Wall 2 -->
+    <model name="wall2">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>5 0.1 2.5</size>
+            </box>
+          </geometry>
+          <pose>0 0 1.25 0 0 0</pose>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>5 0.1 2.5</size>
+            </box>
+          </geometry>
+          <pose>0 0 1.25 0 0 0</pose>
+        </visual>
+      </link>
+      <pose>0 -2.5 0 0 0 0</pose>
+    </model>
+
+    <!-- Wall 3 -->
+    <model name="wall3">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>0.1 5 2.5</size>
+            </box>
+          </geometry>
+          <pose>0 0 1.25 0 0 0</pose>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>0.1 5 2.5</size>
+            </box>
+          </geometry>
+          <pose>0 0 1.25 0 0 0</pose>
+        </visual>
+      </link>
+      <pose>2.5 0 0 0 0 0</pose>
+    </model>
+
+    <!-- Wall 4 -->
+    <model name="wall4">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>0.1 5 2.5</size>
+            </box>
+          </geometry>
+          <pose>0 0 1.25 0 0 0</pose>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>0.1 5 2.5</size>
+            </box>
+          </geometry>
+          <pose>0 0 1.25 0 0 0</pose>
+        </visual>
+      </link>
+      <pose>-2.5 0 0 0 0 0</pose>
+    </model>
 
     <!-- Scene settings -->
     <scene>
