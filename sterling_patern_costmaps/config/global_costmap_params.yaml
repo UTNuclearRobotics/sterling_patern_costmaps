@@ -1,7 +1,7 @@
 # global_costmap_params.yaml
 global_costmap:
-  global_frame: <namespace>/map
-  robot_base_frame: <namespace>/base_link
+  global_frame: map
+  robot_base_frame: base_link
   update_frequency: 1.0      # From global_costmap.update_frequency
   publish_frequency: 1.0     # From global_costmap.publish_frequency
   static_map: true           # Since static_layer is enabled
@@ -17,9 +17,9 @@ global_costmap:
     - {name: inflation_layer, type: "costmap_2d::InflationLayer"}
 
   static_layer:
-    map_topic: "/<namespace>/map"  # From global_costmap.static_layer.map_topic
-    subscribe_to_updates: true     # From global_costmap.static_layer.map_subscribe_transient_local
+    map_topic: "/map"             # From global_costmap.static_layer.map_topic
+    subscribe_to_updates: true    # From global_costmap.static_layer.map_subscribe_transient_local
 
   sterling_layer:
-    map_topic: "/<namespace>/sterling/global_costmap"  # From global_costmap.sterling_layer.map_topic
-    subscribe_to_updates: true                         # From global_costmap.sterling_layer.map_subscribe_transient_local
+    map_topic: "/sterling/global_costmap"     # From global_costmap.sterling_layer.map_topic
+    subscribe_to_updates: true                # From global_costmap.sterling_layer.map_subscribe_transient_local

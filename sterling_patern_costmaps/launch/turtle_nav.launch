@@ -5,6 +5,8 @@
   <arg name="open_rviz" default="true"/>
   <arg name="move_forward_only" default="false"/>
   <arg name="namespace" default="" doc="Optional namespace for multi-robot setups"/>
+  <arg name="use_rviz" default="true" doc="Whether to start RViz."/>
+  <arg name="rviz_config_file" default="$(find sterling_patern_costmaps)/config/config.rviz" doc="Full path to the RVIZ config file to use"/>
 
   <!-- Add missing default values -->
   <arg name="scan_topic" default="scan" />
@@ -39,7 +41,7 @@
 
     <!-- rviz -->
     <group if="$(arg open_rviz)"> 
-      <node pkg="rviz" type="rviz" name="rviz" required="true"/>
+        <node if="$(arg use_rviz)" name="rviz_mapping" pkg="rviz" type="rviz" output="screen" args="-d $(arg rviz_config_file)"/>
     </group>
   </group>
 
@@ -70,7 +72,7 @@
 
     <!-- rviz -->
     <group if="$(arg open_rviz)"> 
-      <node pkg="rviz" type="rviz" name="rviz" required="true"/>
+        <node if="$(arg use_rviz)" name="rviz_mapping" pkg="rviz" type="rviz" output="screen" args="-d $(arg rviz_config_file)"/>
     </group>
   </group>
 
