@@ -29,7 +29,7 @@ class LocalCostmapBuilder(object):
         self.H = np.array(rospy.get_param("~homography_matrix", [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0])).reshape(3, 3)
         self.patch_size_px = rospy.get_param("~patch_size_px", 128)
         self.patch_size_m = rospy.get_param("~patch_size_m", 0.23)
-        self.base_link_offset_m = rospy.get_param("~base_link_offset_m", 1.4)
+        self.base_link_offset_m = rospy.get_param("~base_link_offset_m", 2.8)
         adapted = rospy.get_param("~adapted", False)
         label_obstacles = rospy.get_param("~label_obstacles", False)
 
@@ -80,7 +80,7 @@ class LocalCostmapBuilder(object):
         # Buffers to store and fetch latest message
         self.camera_msg = None
         self.yaw_angle = None
-        self.occupany_grid_msg = None
+        self.occupancy_grid_msg = None
 
     def camera_callback(self, msg):
         """
@@ -122,7 +122,7 @@ class LocalCostmapBuilder(object):
         
         if self.LocalCostmapHelper is None:
             self.LocalCostmapHelper = LocalCostmapHelper(msg.info.resolution, msg.info.width, msg.info.height)
-        self.occupany_grid_msg = msg
+        self.occupancy_grid_msg = msg
 
     def update_costmap(self, event=None):
         """
@@ -131,12 +131,12 @@ class LocalCostmapBuilder(object):
         based on real-time camera data and orientation.
         """
     
-        if not self.camera_msg or not self.yaw_angle or not self.occupany_grid_msg:
+        if not self.camera_msg or not self.yaw_angle or not self.occupancy_grid_msg:
             if self.camera_msg is None:
                 rospy.logdebug("Camera message is None")
             if self.yaw_angle is None:
                 rospy.logdebug("Yaw angle is None")
-            if self.occupany_grid_msg is None:
+            if self.occupancy_grid_msg is None:
                 rospy.logdebug("Occupancy grid message is None")
             rospy.loginfo("Waiting for camera and occupancy grid message...")
             return
@@ -152,8 +152,8 @@ class LocalCostmapBuilder(object):
         terrain_costmap = self.get_terrain_preferred_costmap(bev_image, self.patch_size_px)
         # rospy.loginfo(f"Costmap:\n{terrain_costmap}")
 
-        # TODO: Bug that the costmap is flipped horizontally
-        terrain_costmap = np.fliplr(terrain_costmap)
+        # TODO: Bug that the costmap is flipped vertically
+        #terrain_costmap = np.fliplr(terrain_costmap)
 
         # Set costs in the region
         data_2d = self.LocalCostmapHelper.set_costs_in_region(
@@ -161,11 +161,11 @@ class LocalCostmapBuilder(object):
         )
 
         # Rotate the costmap by the yaw angle
-        rotated_data = LocalCostmapHelper.rotate_costmap(data_2d, np.degrees(self.yaw_angle) - 90)
+        rotated_data = LocalCostmapHelper.rotate_costmap(data_2d, -np.degrees(self.yaw_angle))
         rotated_data = np.array(rotated_data).flatten()
 
         # Keep the highest cost when stitching the local costmap
-        msg = self.occupany_grid_msg
+        msg = self.occupancy_grid_msg
         msg.data = rotated_data.tolist()
         # msg.data = np.maximum(msg.data, rotated_data).tolist()
 
