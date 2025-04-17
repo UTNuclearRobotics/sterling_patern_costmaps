@@ -112,6 +112,12 @@ class BEVCostmap:
         # Rearrange to (num_cells_y, num_cells_x, channels, cell_size, cell_size)
         cells = cells.transpose(0, 1, 4, 2, 3)
 
+        # Reverse the x-axis (columns) to fix the horizontal flip
+        cells = cells[:, ::-1, :, :, :]  # Flip the x-axis (num_cells_x dimension)
+
+        # Adjust black_cells to match the flipped x-axis
+        black_cells = black_cells[:, ::-1]
+
         # Select only valid (non-black) cells.
         valid_cells = cells[~black_cells]
 

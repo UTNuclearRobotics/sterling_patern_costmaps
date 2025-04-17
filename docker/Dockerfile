@@ -81,6 +81,7 @@ WORKDIR /root/ros_ws
 # Clone your package into src/
 WORKDIR /root/ros_ws/src
 RUN --mount=type=ssh git clone --branch noetic/working_dockerfile --depth=1 git@github.com:UTNuclearRobotics/sterling_patern_costmaps.git
+RUN rm -rf /turtlebot3 
 RUN --mount=type=ssh git clone --branch noetic-feature/camera-change --depth=1 git@github.com:UTNuclearRobotics/turtlebot3.git
 
 # # Create entrypoint script

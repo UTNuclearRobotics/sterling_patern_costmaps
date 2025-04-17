@@ -26,7 +26,7 @@ class LocalCostmapBuilder(object):
         self.H = np.array(rospy.get_param("~homography_matrix", [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0])).reshape(3, 3)
         self.patch_size_px = rospy.get_param("~patch_size_px", 128)
         self.patch_size_m = rospy.get_param("~patch_size_m", 0.23)
-        self.base_link_offset_m = rospy.get_param("~base_link_offset_m", 0.1)
+        self.base_link_offset_m = rospy.get_param("~base_link_offset_m", 0.4)
         adapted = rospy.get_param("~adapted", False)
         label_obstacles = rospy.get_param("~label_obstacles", False)
         # Print parameter values
@@ -103,6 +103,7 @@ class LocalCostmapBuilder(object):
         if self.LocalCostmapHelper is None:
             self.LocalCostmapHelper = LocalCostmapHelper(msg.info.resolution, msg.info.width, msg.info.height)
         self.occupancy_grid_msg = msg
+
     def update_costmap(self, event=None):
         """
         Updates the local costmap using camera data, yaw angle, and occupancy grid message.
@@ -133,8 +134,7 @@ class LocalCostmapBuilder(object):
         # Get terrain preferred costmap
         terrain_costmap = self.get_terrain_preferred_costmap(bev_image, self.patch_size_px)
         # rospy.loginfo(f"Costmap:\n{terrain_costmap}")
-        # TODO: Bug that the costmap is flipped vertically
-        #terrain_costmap = np.fliplr(terrain_costmap)
+
         # Set costs in the region
         data_2d = self.LocalCostmapHelper.set_costs_in_region(
             0, -self.base_link_offset_m, self.patch_size_m, terrain_costmap
