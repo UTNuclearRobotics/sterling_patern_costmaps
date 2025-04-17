@@ -22,4 +22,4 @@
 /sterling/global_costmap_builder:
   sub_topic_local_costmap: "/sterling/local_costmap"
   sub_topic_global_costmap: "/move_base/global_costmap/costmap"
-  use_maximum: false
+  use_maximum: true
