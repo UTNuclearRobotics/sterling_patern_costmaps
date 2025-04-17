@@ -21,15 +21,18 @@ class GlobalCostmapBuilder(object):
 
         # Declare and get parameters using ROS1 parameter server
         self.sub_topic_local_costmap = rospy.get_param("~sub_topic_local_costmap", "/local_costmap/costmap")
-        self.sub_topic_global_costmap = rospy.get_param("~sub_topic_global_costmap", "/global_costmap/costmap")
-        self.pub_topic_global_costmap = rospy.get_param("~pub_topic_global_costmap", "/move_base/global_costmap/costmap")
+        self.sub_topic_global_costmap = rospy.get_param("~sub_topic_global_costmap", "/move_base/global_costmap/costmap")
+        self.pub_topic_global_costmap = rospy.get_param("~pub_topic_global_costmap", "/combined_global_costmap")
         self.use_maximum = rospy.get_param("~use_maximum", False)
+        # Add a parameter for the obstacle threshold
+        self.obstacle_threshold = rospy.get_param("~obstacle_threshold", 100)  # Default to 100 for move_base obstacles
 
         # Print parameter values
         rospy.logdebug(f"Subscription local costmap topic: {self.sub_topic_local_costmap}")
         rospy.logdebug(f"Subscription global costmap topic: {self.sub_topic_global_costmap}")
         rospy.logdebug(f"Publication global costmap topic: {self.pub_topic_global_costmap}")
         rospy.logdebug(f"Use maximum: {self.use_maximum}")
+        rospy.logdebug(f"Obstacle threshold: {self.obstacle_threshold}")
 
         # Subscribe to the local costmap
         self.local_sub = rospy.Subscriber(
@@ -82,15 +85,15 @@ class GlobalCostmapBuilder(object):
         self.global_origin_x = msg.info.origin.position.x
         self.global_origin_y = msg.info.origin.position.y
 
-        # Initialize stitched costmap if not yet initialized
+        # Initialize stitched costmap with move_base costmap data
         if self.stitched_costmap is None:
-            self.stitched_costmap = np.full((self.global_height, self.global_width), -1, dtype=int)
+            self.stitched_costmap = np.array(msg.data, dtype=np.int8).reshape(self.global_height, self.global_width)
             self.stitched_resolution = self.global_resolution
             self.stitched_width = self.global_width
             self.stitched_height = self.global_height
             self.stitched_origin_x = self.global_origin_x
             self.stitched_origin_y = self.global_origin_y
-            rospy.loginfo("Global costmap initialized.")
+            rospy.loginfo("Global costmap initialized with move_base costmap.")
         # If origin or size of global costmap changes, resize stitched costmap
         elif (
             self.stitched_width != self.global_width
@@ -98,7 +101,7 @@ class GlobalCostmapBuilder(object):
             or self.stitched_origin_x != self.global_origin_x
             or self.stitched_origin_y != self.global_origin_y
         ):
-            self.resize_stitched_costmap()
+            self.resize_stitched_costmap(msg)
 
     def stitch_local_publish_global(self, msg):
         """
@@ -136,13 +139,21 @@ class GlobalCostmapBuilder(object):
 
                 # Ensure stitched coordinates are within bounds
                 if 0 <= stitched_x < self.stitched_width and 0 <= stitched_y < self.stitched_height:
-                    # Update stitched costmap
+                    # Get the current value in the stitched costmap (from move_base)
                     current_value = self.stitched_costmap[stitched_y, stitched_x]
                     new_value = local_data[y, x]
 
+                    # Skip updating if the current cell is an obstacle (value >= obstacle_threshold)
+                    if current_value >= self.obstacle_threshold:
+                        continue
+
+                    # Update terrain costs for non-obstacle cells
                     if self.use_maximum:
-                        self.stitched_costmap[stitched_y, stitched_x] = max(current_value, new_value)
+                        # Use the maximum value if use_maximum is True, but only for non-obstacles
+                        if new_value > -1:  # Ignore unknown values from local costmap
+                            self.stitched_costmap[stitched_y, stitched_x] = max(current_value, new_value)
                     else:
+                        # Update with the new value if it's not unknown
                         if new_value > -1:
                             self.stitched_costmap[stitched_y, stitched_x] = new_value
 
@@ -151,7 +162,7 @@ class GlobalCostmapBuilder(object):
         self.update_msg.data = self.stitched_costmap.flatten().tolist()
         self.stitched_costmap_publisher.publish(self.update_msg)
 
-    def resize_stitched_costmap(self):
+    def resize_stitched_costmap(self, global_msg):
         """
         Resizes the stitched global costmap to match the dimensions of the global costmap 
         and accommodates new data while preserving existing data.
@@ -162,20 +173,25 @@ class GlobalCostmapBuilder(object):
         operation.
         """
 
-        # Create a new stitched costmap grid
-        new_stitched_costmap = np.full((self.global_height, self.global_width), -1, dtype=np.int8)
+        # Use the new move_base costmap as the base
+        new_stitched_costmap = np.array(global_msg.data, dtype=np.int8).reshape(self.global_height, self.global_width)
 
-        # Calculate the offset for the existing data
+        # Calculate the offset for the existing stitched data
         offset_x = int((self.stitched_origin_x - self.global_origin_x) / self.stitched_resolution)
         offset_y = int((self.stitched_origin_y - self.global_origin_y) / self.stitched_resolution)
 
-        # Copy the existing data to the new grid
+        # Overlay the existing stitched data onto the new move_base costmap
         for y in range(self.stitched_height):
             for x in range(self.stitched_width):
                 new_x = x + offset_x
                 new_y = y + offset_y
                 if 0 <= new_x < self.global_width and 0 <= new_y < self.global_height:
-                    new_stitched_costmap[new_y, new_x] = self.stitched_costmap[y, x]
+                    # Preserve obstacles from the new move_base costmap
+                    if new_stitched_costmap[new_y, new_x] >= self.obstacle_threshold:
+                        continue
+                    # Otherwise, copy non-obstacle values from the existing stitched costmap
+                    if self.stitched_costmap[y, x] > -1:  # Only copy non-unknown values
+                        new_stitched_costmap[new_y, new_x] = self.stitched_costmap[y, x]
 
         # Update the stitched costmap properties
         self.stitched_width = self.global_width

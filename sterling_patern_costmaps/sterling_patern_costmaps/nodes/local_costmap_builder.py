@@ -26,7 +26,7 @@ class LocalCostmapBuilder(object):
         self.H = np.array(rospy.get_param("~homography_matrix", [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0])).reshape(3, 3)
         self.patch_size_px = rospy.get_param("~patch_size_px", 128)
         self.patch_size_m = rospy.get_param("~patch_size_m", 0.23)
-        self.base_link_offset_m = rospy.get_param("~base_link_offset_m", 0.4)
+        self.base_link_offset_m = rospy.get_param("~base_link_offset_m", 0.0)
         adapted = rospy.get_param("~adapted", False)
         label_obstacles = rospy.get_param("~label_obstacles", False)
         # Print parameter values
