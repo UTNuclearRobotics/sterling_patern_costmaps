@@ -140,7 +140,7 @@ class LocalCostmapBuilder(object):
             0, -self.base_link_offset_m, self.patch_size_m, terrain_costmap
         )
         # Rotate the costmap by the yaw angle
-        rotated_data = LocalCostmapHelper.rotate_costmap(data_2d, -np.degrees(self.yaw_angle))
+        rotated_data = LocalCostmapHelper.rotate_costmap(data_2d, -np.degrees(self.yaw_angle) - 90)
         rotated_data = np.array(rotated_data).flatten()
         # Keep the highest cost when stitching the local costmap
         msg = self.occupancy_grid_msg
