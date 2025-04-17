@@ -123,12 +123,7 @@ class LocalCostmapBuilder(object):
         image_data = np.frombuffer(self.camera_msg.data, dtype=np.uint8).reshape(
             self.camera_msg.height, self.camera_msg.width, -1
         )
-        # Resize image to 1280x720
-        image_data = cv2.resize(
-            image_data,
-            (1280, 720),  # (width, height)
-            interpolation=cv2.INTER_AREA  # Good for downscaling
-        )  # Shape: (720, 1280, 3)
+
         # Preview the image using OpenCV
         bev_image = get_BEV_image(image_data, self.H, (self.patch_size_px, self.patch_size_px), (7, 12))
         # Get terrain preferred costmap
