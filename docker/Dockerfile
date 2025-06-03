@@ -1,5 +1,5 @@
 # Use ROS Noetic as the base image
-FROM ros:noetic
+FROM ros:noetic-robot
 
 # Set shell to bash
 SHELL ["/bin/bash", "-c"]
@@ -14,12 +14,23 @@ RUN NUM_CORES=$(($(nproc) - 2)); \
 ENV ROS_DISTRO=noetic
 ENV DEBIAN_FRONTEND=noninteractive
 
+RUN rm /etc/apt/sources.list.d/ros1-latest.list && \
+    apt update && apt install curl && \
+    curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros1.list > /dev/null
+
+RUN apt update && sudo apt install ros2-apt-source ; rm /etc/apt/sources.list.d/ros1.list; rm /usr/share/keyrings/ros-archive-keyring.gpg
+
+RUN sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
+RUN apt install curl
+RUN curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | sudo apt-key add -
+
 # Install dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
-    ros-noetic-catkin \
     git \
     openssh-client \
+    ros-noetic-catkin \
     ros-noetic-amcl \
     ros-noetic-xacro \
     ros-noetic-joint-state-publisher \
@@ -39,6 +50,7 @@ RUN apt-get update && apt-get install -y \
     ros-noetic-robot-state-publisher \
     ros-noetic-rviz \
     python3-pip \
+    python3-catkin-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # Install ROS Tools
@@ -115,13 +127,12 @@ RUN --mount=type=ssh git clone https://github.com/ROBOTIS-GIT/turtlebot3_simulat
 WORKDIR /root/dependency_ws
 RUN rosdep update
 RUN rosdep install --from-paths src --ignore-src -r -y
-RUN source /opt/ros/noetic/setup.bash && catkin_make
+RUN source /opt/ros/noetic/setup.bash && catkin build
 RUN echo "export TURTLEBOT3_MODEL=waffle" >> ~/.bashrc
 
 RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc \
     && echo "source /root/dependency_ws/devel/setup.bash" >> ~/.bashrc \
     && source ~/.bashrc
-
 
 RUN echo "source /root/ros_ws/src/sterling_patern_costmaps/alias.sh" >> ~/.bashrc
 

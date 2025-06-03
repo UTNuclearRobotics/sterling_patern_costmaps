@@ -16,7 +16,7 @@ services:
     security_opt:
       - apparmor:unconfined
     volumes:
-      - ../sterling_patern_costmaps:/root/ros_ws/src/sterling_patern_costmaps
+      - ../:/root/ros_ws/src/
       - /tmp/.X11-unix:/tmp/.X11-unix
       - /dev/dri:/dev/dri
       - ${HOME}/.Xauthority:/root/.Xauthority:rw
