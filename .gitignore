@@ -3,5 +3,4 @@ venv
 *.egg-info/
 __pycache__/
 id_*
-models
 build
