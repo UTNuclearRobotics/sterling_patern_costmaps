@@ -86,11 +86,14 @@ class BEVCostmap:
         effective_height = num_cells_y * cell_size
         effective_width = num_cells_x * cell_size
 
-        # Slice the image to the effective region.
+        # Slice the image to the effective region (this is a view, no copy).
         bev_img = bev_img[:effective_height, :effective_width]
 
-        # Initialize costmap container.
-        costmap = np.empty((num_cells_y, num_cells_x), dtype=np.int8)
+        # Handle grayscale to RGB conversion early if needed (assumes model expects [B, 3, H, W]).
+        if bev_img.ndim == 2:  # Grayscale (H, W) -> (H, W, 1)
+            bev_img = bev_img[..., np.newaxis]
+        if bev_img.shape[2] == 1:  # (H, W, 1) -> (H, W, 3)
+            bev_img = np.repeat(bev_img, 3, axis=2)
 
         # Create mask for black regions.
         black_cells = np.zeros((num_cells_y, num_cells_x), dtype=bool)
@@ -109,26 +112,20 @@ class BEVCostmap:
         )
         cells = np.lib.stride_tricks.as_strided(bev_img, shape=cell_shape, strides=cell_strides)
         
-        # Rearrange to (num_cells_y, num_cells_x, channels, cell_size, cell_size)
+        # Rearrange to (num_cells_y, num_cells_x, channels, cell_size, cell_size) – this is a view.
         cells = cells.transpose(0, 1, 4, 2, 3)
 
-        # Select only valid (non-black) cells.
-        valid_cells = cells[~black_cells]
+        # Flatten to batch shape for prediction: (num_cells_y * num_cells_x, channels, cell_size, cell_size) – still a view.
+        all_cells = cells.reshape(-1, channels, cell_size, cell_size)
 
-        # Calculate costs for valid cells in a single batch.
-        if valid_cells.size:
-            # Ensure valid_cells has shape [B, C, H, W]
-            if len(valid_cells.shape) == 5 and valid_cells.shape[2] == 1:  # Grayscale
-                valid_cells = valid_cells.squeeze(2)  # [B, H, W]
-                valid_cells = np.stack([valid_cells] * 3, axis=1)  # [B, 3, H, W]
-            uvis_cost, final_cost = self.predict_preferences(valid_cells)
+        # Calculate costs for all cells in a single batch.
+        if all_cells.size:
+            uvis_cost, final_cost = self.predict_preferences(all_cells)
         else:
-            uvis_cost, final_cost = np.empty((0,), dtype=np.uint8)
+            final_cost = np.empty((0,), dtype=np.uint8)
 
-        # Assemble costmap: assign maximum cost (-1) to unknown cells and computed costs to others.
+        # Assemble costmap: reshape final_cost and override black cells with -1.
+        costmap = final_cost.reshape(num_cells_y, num_cells_x).astype(np.int8)
         costmap[black_cells] = -1
-        costmap[~black_cells] = final_cost
-        
-        print(costmap)
 
         return costmap

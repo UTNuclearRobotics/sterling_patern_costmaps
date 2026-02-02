@@ -75,7 +75,7 @@ def generate_launch_description():
                 ],
                 parameters=[{"use_sim_time": use_sim_time}],
                 remappings=[
-                ('/goal_pose', '/panther/goal_pose'),
+                ('/goal_pose', '/goal_pose'),
                 ],
                 output="screen",
             ),

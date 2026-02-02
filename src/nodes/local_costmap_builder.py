@@ -1,10 +1,12 @@
 import cv2
 import numpy as np
 import rclpy
+import math
 from nav_msgs.msg import OccupancyGrid
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from tf2_ros import Buffer, TransformListener
+from cv_bridge import CvBridge
 
 from sterling_patern_costmaps.bev import get_BEV_image
 from sterling_patern_costmaps.bev_costmap import BEVCostmap
@@ -24,12 +26,13 @@ class LocalCostmapBuilder(Node):
         self.declare_parameter("sub_topic_camera", "/camera/topic")
         self.declare_parameter("sub_topic_local_costmap", "/local_costmap/topic")
         self.declare_parameter("pub_topic_local_costmap", "/local_costmap")
-        self.declare_parameter("pub_topic_local_costmap_hz", 1.0)
+        self.declare_parameter("pub_topic_local_costmap_hz", 10.0)
+        self.declare_parameter("pub_topic_bev_img", "bev_img")
         self.declare_parameter("model_path", "path/to/models")
         self.declare_parameter("homography_matrix", [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0])
         self.declare_parameter("patch_size_px", 128)
-        self.declare_parameter("patch_size_m", 0.23)
-        self.declare_parameter("base_link_offset_m", 1.4)
+        self.declare_parameter("patch_size_m", 0.25)
+        self.declare_parameter("base_link_offset_m", 1.0)
         self.declare_parameter("adapted", False)
         self.declare_parameter("label_obstacles", False)
 
@@ -38,6 +41,7 @@ class LocalCostmapBuilder(Node):
         self.sub_topic_local_costmap = self.get_parameter("sub_topic_local_costmap").value
         self.pub_topic_local_costmap_hz = self.get_parameter("pub_topic_local_costmap_hz").value
         self.pub_topic_local_costmap = self.get_parameter("pub_topic_local_costmap").value
+        self.pub_topic_bev_img = self.get_parameter("pub_topic_bev_img").value
         model_path = self.get_parameter("model_path").value
         self.H = np.array(self.get_parameter("homography_matrix").value).reshape(3, 3)
         self.patch_size_px = self.get_parameter("patch_size_px").value
@@ -66,6 +70,9 @@ class LocalCostmapBuilder(Node):
         )
 
         # Publishers
+        self.bridge = CvBridge()
+        self.bev_img_publisher = self.create_publisher(Image, self.pub_topic_bev_img, 10)
+
         self.sterling_patern_costmap_publisher = self.create_publisher(OccupancyGrid, self.pub_topic_local_costmap, 10)
 
         # Timers
@@ -100,7 +107,7 @@ class LocalCostmapBuilder(Node):
 
         # Lookup transform from base_link to get orientation
         try:
-            transform = self.tf_buffer.lookup_transform("panther/base_link", "panther/map", rclpy.time.Time())
+            transform = self.tf_buffer.lookup_transform("panther/base_link", "map", rclpy.time.Time())
             self.yaw_angle = LocalCostmapHelper.quarternion_to_euler(transform.transform.rotation)
             # self.get_logger().info(f"Yaw angle: {np.degrees(yaw_angle)}")
         except Exception as e:
@@ -148,6 +155,8 @@ class LocalCostmapBuilder(Node):
         )
         # Preview the image using OpenCV
         bev_image = get_BEV_image(image_data, self.H, (self.patch_size_px, self.patch_size_px), (7, 12))
+        ros_image = self.bridge.cv2_to_imgmsg(bev_image, encoding="bgr8")
+        self.bev_img_publisher.publish(ros_image)
 
         # Get terrain preferred costmap
         terrain_costmap = self.get_terrain_preferred_costmap(bev_image, self.patch_size_px)

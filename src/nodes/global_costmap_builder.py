@@ -115,52 +115,90 @@ class GlobalCostmapBuilder(Node):
             self.resize_stitched_costmap()
 
     def stitch_local_publish_global(self, msg):
-        """
-        Callback function for processing and integrating a local costmap into a global costmap.
-
-        This function subscribes to a local costmap topic, extracts the local costmap data, 
-        transforms it into the global costmap frame, and updates the global costmap by stitching 
-        the local costmap data into it. The updated global costmap is then published.
-
-        Args:
-            msg (OccupancyGrid): ROS message containing the local costmap data. It includes 
-                                 metadata such as resolution, origin, width, and height.
-        """
-
         if self.stitched_costmap is None:
             self.get_logger().warn("Stitched costmap not yet initialized.")
             return
 
-        # Extract local costmap data
-        local_data = np.array(msg.data).reshape(msg.info.height, msg.info.width)
-        local_resolution = msg.info.resolution
-        local_origin_x = msg.info.origin.position.x
-        local_origin_y = msg.info.origin.position.y
+        # ─── Extract local data ───────────────────────────────────────
+        local_data = np.array(msg.data, dtype=np.int16).reshape(msg.info.height, msg.info.width)
+        local_res  = msg.info.resolution
+        local_ox   = msg.info.origin.position.x
+        local_oy   = msg.info.origin.position.y
 
-        # Transform local costmap data to stitched costmap frame
-        for y in range(msg.info.height):
-            for x in range(msg.info.width):
-                # Calculate stitched coordinates
-                stitched_x = int(
-                    (x * local_resolution + local_origin_x - self.stitched_origin_x) / self.stitched_resolution
-                )
-                stitched_y = int(
-                    (y * local_resolution + local_origin_y - self.stitched_origin_y) / self.stitched_resolution
-                )
+        stitched_res = self.stitched_resolution
+        stitched_ox  = self.stitched_origin_x
+        stitched_oy  = self.stitched_origin_y
 
-                # Ensure stitched coordinates are within bounds
-                if 0 <= stitched_x < self.stitched_width and 0 <= stitched_y < self.stitched_height:
-                    # Update stitched costmap
-                    current_value = self.stitched_costmap[stitched_y, stitched_x]
-                    new_value = local_data[y, x]
+        h_loc, w_loc = local_data.shape
 
-                    if self.use_maximum:
-                        self.stitched_costmap[stitched_y, stitched_x] = max(current_value, new_value)
-                    else:
-                        if new_value > -1:
-                            self.stitched_costmap[stitched_y, stitched_x] = new_value
+        # ─── Create local pixel center coordinates (vectorized) ───────
+        # Using cell centers gives slightly better behavior than corners in many cases
+        # But we still expand to conservative bounds later
+        lx = np.arange(w_loc, dtype=np.float32)      # shape (w_loc,)
+        ly = np.arange(h_loc, dtype=np.float32)      # shape (h_loc,)
 
-        # Publish the updated global costmap
+        # World coordinates of **cell centers**
+        wx = local_ox + (lx + 0.5) * local_res
+        wy = local_oy + (ly + 0.5) * local_res
+
+        # ─── Meshgrid of all cell centers in world frame ─────────────
+        WX, WY = np.meshgrid(wx, wy, indexing='xy')   # both (h_loc, w_loc)
+
+        # ─── Transform to stitched grid coordinates ──────────────────
+        gx = (WX - stitched_ox) / stitched_res
+        gy = (WY - stitched_oy) / stitched_res
+
+        # ─── Conservative bounding box per local cell ────────────────
+        # We still expand half cell in each direction → conservative
+        half_local_cell = local_res * 0.5 / stitched_res   # in stitched grid units
+
+        gx_min = np.floor(gx - half_local_cell).astype(np.int32)
+        gy_min = np.floor(gy - half_local_cell).astype(np.int32)
+        gx_max = np.ceil (gx + half_local_cell).astype(np.int32)
+        gy_max = np.ceil (gy + half_local_cell).astype(np.int32)
+
+        # ─── Clip indices ─────────────────────────────────────────────
+        gx_min = np.clip(gx_min, 0, self.stitched_width)
+        gy_min = np.clip(gy_min, 0, self.stitched_height)
+        gx_max = np.clip(gx_max, 0, self.stitched_width)
+        gy_max = np.clip(gy_max, 0, self.stitched_height)
+
+        # ─── Mask out cells with no overlap ───────────────────────────
+        valid = (gx_min < gx_max) & (gy_min < gy_max) & (local_data != -1)
+        
+        if not np.any(valid):
+            return  # nothing to do
+
+        # ─── Only process valid cells ────────────────────────────────
+        costs   = local_data[valid]
+        gx_min  = gx_min[valid]
+        gy_min  = gy_min[valid]
+        gx_max  = gx_max[valid]
+        gy_max  = gy_max[valid]
+
+        # ─── Now update stitched costmap ─────────────────────────────
+        if self.use_maximum:
+            # Most common case in costmaps → use np.maximum.at
+            for i in range(len(costs)):
+                y1, y2 = gy_min[i], gy_max[i]
+                x1, x2 = gx_min[i], gx_max[i]
+                if y2 <= y1 or x2 <= x1:
+                    continue
+                np.maximum.at(self.stitched_costmap, 
+                            (slice(y1, y2), slice(x1, x2)),
+                            costs[i])
+        else:
+            # Less common branch – still vectorized where possible
+            for i in range(len(costs)):
+                y1, y2 = gy_min[i], gy_max[i]
+                x1, x2 = gx_min[i], gx_max[i]
+                if y2 <= y1 or x2 <= x1:
+                    continue
+                region = self.stitched_costmap[y1:y2, x1:x2]
+                mask = region < costs[i]
+                region[mask] = costs[i]   # in-place
+
+        # ─── Publish ──────────────────────────────────────────────────
         self.update_msg = self.global_msg
         self.update_msg.data = self.stitched_costmap.flatten().tolist()
         self.stitched_costmap_publisher.publish(self.update_msg)
