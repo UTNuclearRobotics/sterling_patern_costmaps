@@ -55,6 +55,111 @@ def get_BEV_image(image, H, patch_size=(128, 128), grid_size=(7, 12), visualize=
 
     return stitched_image
 
+def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visualize=False):
+    """
+    GPU-accelerated BEV stitching.
+    All warping and stitching is done on GPU.
+    Returns CPU numpy array (BGR image) at the end.
+    """
+    if cv2.cuda.getCudaEnabledDeviceCount() == 0:
+        raise RuntimeError("No CUDA device found - cannot use GPU version")
+
+    rows, cols = grid_size
+    pw, ph = patch_size  # patch width, height
+
+    total_width  = cols * pw
+    total_height = rows * ph
+
+    # 1. Upload input image to GPU (once)
+    gpu_img = cv2.cuda_GpuMat()
+    gpu_img.upload(image)
+
+    # 2. Create large output GpuMat on GPU
+    stitched_gpu = cv2.cuda_GpuMat((total_height, total_width), cv2.CV_8UC3)
+    stitched_gpu.setTo((0, 0, 0))  # optional: clear to black
+
+    # 3. Precompute all homographies and target ROIs (on CPU – very cheap)
+    origin_shift = (pw, ph * 2 + 60)
+    homographies = []
+    rois = []  # list of (x, y, w, h) for each patch
+
+    # Match your original order (reversed rows and columns)
+    for i in range(rows - 1, -1, -1):          # reverse row order
+        for j in range(cols - 1, -1, -1):      # reverse column order
+            grid_i = i - rows // 2
+            grid_j = j - cols // 2
+
+            x_shift = grid_j * pw + origin_shift[0]
+            y_shift = grid_i * ph + origin_shift[1]
+
+            T_shift = np.array([[1, 0, x_shift],
+                                [0, 1, y_shift],
+                                [0, 0, 1]], dtype=np.float32)
+
+            H_shifted = T_shift @ H
+            homographies.append(H_shifted)
+
+            # Position in final stitched image (after reverses)
+            roi_x = (cols - 1 - j) * pw
+            roi_y = (rows - 1 - i) * ph
+            rois.append((roi_x, roi_y, pw, ph))
+
+    # 4. Warp + copy to ROIs using multiple streams for better overlap
+    num_streams = 4  # tune between 2–8 depending on your GPU
+    streams = [cv2.cuda_Stream() for _ in range(num_streams)]
+    temp_patch = cv2.cuda_GpuMat()  # reused temporary
+
+    for idx, (H_shifted, (x, y, w, h)) in enumerate(zip(homographies, rois)):
+        s = streams[idx % num_streams]
+
+        # Warp perspective → temp patch (on GPU)
+        cv2.cuda.warpPerspective(
+            src=gpu_img,
+            M=H_shifted,
+            dsize=(pw, ph),
+            dst=temp_patch,
+            flags=cv2.INTER_LINEAR,           # INTER_NEAREST is faster but lower quality
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=(0, 0, 0),
+            stream=s
+        )
+
+        # Copy to correct ROI in stitched image
+        roi = stitched_gpu.rowRange(y, y + h).colRange(x, x + w)
+        temp_patch.copyTo(roi, stream=s)
+
+    # 5. Wait for everything to finish
+    for s in streams:
+        s.waitForCompletion()
+
+    # 6. Download the final stitched image to CPU (only one download)
+    stitched_cpu = stitched_gpu.download()
+
+    # Optional visualization (on CPU)
+    if visualize:
+        annotated_image = image.copy()
+
+        # Draw patch outlines on original (for reference)
+        for H_shifted in homographies:
+            annotated_image = draw_points(annotated_image, H_shifted, patch_size,
+                                         color=(0, 255, 0), thickness=2)
+
+        cv2.imshow("Current Image with patches", annotated_image)
+
+        # Draw grid on stitched result
+        grid_img = stitched_cpu.copy()
+        for i in range(rows + 1):
+            cv2.line(grid_img, (0, i * ph), (total_width, i * ph), (0, 255, 0), 2)
+        for j in range(cols + 1):
+            cv2.line(grid_img, (j * pw, 0), (j * pw, total_height), (0, 255, 0), 2)
+
+        cv2.imshow("Stitched BEV Image", grid_img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    # Return CPU array (compatible with your original code)
+    return stitched_cpu
+
 def draw_points(image, H, patch_size=(128, 128), color=(0, 255, 0), thickness=2):
     """
     Draw the boundaries of patches extracted via homography on the original image.
