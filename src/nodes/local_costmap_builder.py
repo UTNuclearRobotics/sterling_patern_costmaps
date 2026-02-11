@@ -161,6 +161,9 @@ class LocalCostmapBuilder(Node):
         # Use GPU-accelerated version if available
         if self.use_gpu:
             bev_image = get_BEV_image_gpu(image_data, self.H, (self.patch_size_px, self.patch_size_px), (7, 12))
+            # Convert GpuMat to numpy array if needed
+            if isinstance(bev_image, cv2.cuda.GpuMat):
+                bev_image = bev_image.download()
         else:
             bev_image = get_BEV_image(image_data, self.H, (self.patch_size_px, self.patch_size_px), (7, 12))
         
