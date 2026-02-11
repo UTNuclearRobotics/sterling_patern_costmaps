@@ -57,8 +57,8 @@ def get_BEV_image(image, H, patch_size=(128, 128), grid_size=(7, 12), visualize=
 
 def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visualize=False):
     """
-    GPU-accelerated BEV stitching.
-    All warping and stitching is done on GPU.
+    GPU-accelerated BEV stitching with maximum performance.
+    All warping and stitching is done on GPU with true parallelism.
     Returns CPU numpy array (BGR image) at the end.
     """
     if cv2.cuda.getCudaEnabledDeviceCount() == 0:
@@ -76,16 +76,15 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
 
     # 2. Create large output GpuMat on GPU
     stitched_gpu = cv2.cuda_GpuMat((total_height, total_width), cv2.CV_8UC3)
-    stitched_gpu.setTo((0, 0, 0))  # optional: clear to black
+    stitched_gpu.setTo((0, 0, 0))
 
-    # 3. Precompute all homographies and target ROIs (on CPU – very cheap)
+    # 3. Precompute all homographies and target ROIs
     origin_shift = (pw, ph * 2 + 60)
     homographies = []
-    rois = []  # list of (x, y, w, h) for each patch
+    rois = []
 
-    # Match your original order (reversed rows and columns)
-    for i in range(rows - 1, -1, -1):          # reverse row order
-        for j in range(cols - 1, -1, -1):      # reverse column order
+    for i in range(rows - 1, -1, -1):
+        for j in range(cols - 1, -1, -1):
             grid_i = i - rows // 2
             grid_j = j - cols // 2
 
@@ -99,43 +98,39 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
             H_shifted = T_shift @ H
             homographies.append(H_shifted)
 
-            # Position in final stitched image (after reverses)
             roi_x = (cols - 1 - j) * pw
             roi_y = (rows - 1 - i) * ph
             rois.append((roi_x, roi_y, pw, ph))
 
-    # 4. Warp + copy to ROIs using multiple streams for better overlap
-    num_streams = 4  # tune between 2–8 depending on your GPU
+    # 4. BATCH PROCESSING: Warp all patches first, then copy all
+    num_streams = 8  # Increased for better parallelism
     streams = [cv2.cuda_Stream() for _ in range(num_streams)]
-    # Create one temp patch per stream (before the loop)
-    temp_patches = [cv2.cuda_GpuMat() for _ in range(num_streams)]
+    temp_patches = [cv2.cuda_GpuMat() for _ in range(len(homographies))]  # One per patch!
 
-    for idx, (H_shifted, (x, y, w, h)) in enumerate(zip(homographies, rois)):
-        stream_idx = idx % num_streams
-        s = streams[stream_idx]
-        temp_patch = temp_patches[stream_idx]
-
-        # Warp perspective on this stream
+    # PHASE 1: Launch ALL warps in parallel
+    for idx, H_shifted in enumerate(homographies):
+        s = streams[idx % num_streams]
+        
         cv2.cuda.warpPerspective(
             src=gpu_img,
             M=H_shifted,
             dsize=(pw, ph),
-            dst=temp_patch,
-            flags=cv2.INTER_LINEAR,
+            dst=temp_patches[idx],
+            flags=cv2.INTER_NEAREST,  # FASTER than INTER_LINEAR
             borderMode=cv2.BORDER_CONSTANT,
             borderValue=(0, 0, 0),
             stream=s
         )
-        
-        # Wait for this specific warp to complete before copying
-        s.waitForCompletion()
-        
-        # Copy to correct ROI (now safe because warp is done)
-        roi = stitched_gpu.rowRange(y, y + h).colRange(x, x + w)
-        temp_patch.copyTo(roi)
 
-    # 5. No need to wait again - already waited per iteration
-    
+    # PHASE 2: Wait for all warps to complete
+    for s in streams:
+        s.waitForCompletion()
+
+    # PHASE 3: Copy all patches to final image (fast, sequential is fine)
+    for idx, (x, y, w, h) in enumerate(rois):
+        roi = stitched_gpu.rowRange(y, y + h).colRange(x, x + w)
+        temp_patches[idx].copyTo(roi)
+
     # 5. Download the final stitched image to CPU (only one download)
     stitched_cpu = stitched_gpu.download()
 
@@ -143,14 +138,12 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
     if visualize:
         annotated_image = image.copy()
 
-        # Draw patch outlines on original (for reference)
         for H_shifted in homographies:
             annotated_image = draw_points(annotated_image, H_shifted, patch_size,
                                          color=(0, 255, 0), thickness=2)
 
         cv2.imshow("Current Image with patches", annotated_image)
 
-        # Draw grid on stitched result
         grid_img = stitched_cpu.copy()
         for i in range(rows + 1):
             cv2.line(grid_img, (0, i * ph), (total_width, i * ph), (0, 255, 0), 2)
@@ -161,7 +154,6 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-    # Return CPU array (compatible with your original code)
     return stitched_cpu
 
 def draw_points(image, H, patch_size=(128, 128), color=(0, 255, 0), thickness=2):
