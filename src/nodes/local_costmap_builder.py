@@ -8,7 +8,7 @@ from sensor_msgs.msg import Image
 from tf2_ros import Buffer, TransformListener
 from cv_bridge import CvBridge
 
-from sterling_patern_costmaps.bev import get_BEV_image
+from sterling_patern_costmaps.bev import get_BEV_image, get_BEV_image_gpu
 from sterling_patern_costmaps.bev_costmap import BEVCostmap
 
 

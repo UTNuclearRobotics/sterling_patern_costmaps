@@ -107,32 +107,36 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
     # 4. Warp + copy to ROIs using multiple streams for better overlap
     num_streams = 4  # tune between 2–8 depending on your GPU
     streams = [cv2.cuda_Stream() for _ in range(num_streams)]
-    temp_patch = cv2.cuda_GpuMat()  # reused temporary
+    # Create one temp patch per stream (before the loop)
+    temp_patches = [cv2.cuda_GpuMat() for _ in range(num_streams)]
 
     for idx, (H_shifted, (x, y, w, h)) in enumerate(zip(homographies, rois)):
-        s = streams[idx % num_streams]
+        stream_idx = idx % num_streams
+        s = streams[stream_idx]
+        temp_patch = temp_patches[stream_idx]
 
-        # Warp perspective → temp patch (on GPU)
+        # Warp perspective on this stream
         cv2.cuda.warpPerspective(
             src=gpu_img,
             M=H_shifted,
             dsize=(pw, ph),
             dst=temp_patch,
-            flags=cv2.INTER_LINEAR,           # INTER_NEAREST is faster but lower quality
+            flags=cv2.INTER_LINEAR,
             borderMode=cv2.BORDER_CONSTANT,
             borderValue=(0, 0, 0),
             stream=s
         )
-
-        # Copy to correct ROI in stitched image
-        roi = stitched_gpu.rowRange(y, y + h).colRange(x, x + w)
-        temp_patch.copyTo(roi, stream=s)
-
-    # 5. Wait for everything to finish
-    for s in streams:
+        
+        # Wait for this specific warp to complete before copying
         s.waitForCompletion()
+        
+        # Copy to correct ROI (now safe because warp is done)
+        roi = stitched_gpu.rowRange(y, y + h).colRange(x, x + w)
+        temp_patch.copyTo(roi)
 
-    # 6. Download the final stitched image to CPU (only one download)
+    # 5. No need to wait again - already waited per iteration
+    
+    # 5. Download the final stitched image to CPU (only one download)
     stitched_cpu = stitched_gpu.download()
 
     # Optional visualization (on CPU)
