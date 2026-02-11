@@ -9,7 +9,6 @@ from sterling_patern_costmaps.train_patern import PaternPreAdaptation
 class BEVCostmap:
     """
     An overview of the cost inference process for local planning at deployment using trained preference predictor.
-    OPTIMIZED: Added CUDA performance enhancements for faster inference.
     """
 
     def __init__(self, model_path, adapted=False, label_obstacles=False):
@@ -53,24 +52,6 @@ class BEVCostmap:
 
         # Set the model to evaluation mode
         self.model.eval()
-        
-        # OPTIMIZATION: Enable CUDA performance enhancements
-        if torch.cuda.is_available():
-            # Enable TensorFloat32 for faster computation on Ampere+ GPUs
-            torch.backends.cuda.matmul.allow_tf32 = True
-            torch.backends.cudnn.allow_tf32 = True
-            
-            # Enable cudnn benchmarking for consistent input sizes
-            torch.backends.cudnn.benchmark = True
-            
-            print("CUDA optimizations enabled (TF32, cudnn benchmark)")
-            
-            # Warm up the model with a dummy batch to initialize CUDA kernels
-            print("Warming up model...")
-            dummy_input = torch.randn(84, 3, 128, 128, device=self.device)
-            with torch.no_grad():
-                _ = self.model(dummy_input, inertial=None)
-            print("Model warmed up and ready for inference")
 
     def predict_preferences(self, cells):
         """Predict preferences for a batch of cells using the trained uvis model."""
@@ -97,10 +78,7 @@ class BEVCostmap:
             return uvis_costs, final_costs
 
     def BEV_to_costmap(self, bev_img, cell_size):
-        """
-        Convert BEV image to costmap while automatically marking consistent black areas.
-        OPTIMIZED: Uses stride tricks and vectorized operations for faster processing.
-        """
+        """Convert BEV image to costmap while automatically marking consistent black areas."""
         height, width = bev_img.shape[:2]
         num_cells_y, num_cells_x = height // cell_size, width // cell_size
 

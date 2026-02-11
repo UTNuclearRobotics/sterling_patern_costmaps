@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import rclpy
-import torch
+import math
 from nav_msgs.msg import OccupancyGrid
 from rclpy.node import Node
 from sensor_msgs.msg import Image
@@ -72,16 +72,16 @@ class LocalCostmapBuilder(Node):
         # Publishers
         self.bridge = CvBridge()
         self.bev_img_publisher = self.create_publisher(Image, self.pub_topic_bev_img, 10)
+
         self.sterling_patern_costmap_publisher = self.create_publisher(OccupancyGrid, self.pub_topic_local_costmap, 10)
 
         # Timers
-        self.timer = self.create_timer(1.0 / self.pub_topic_local_costmap_hz, self.update_costmap)
+        self.timer = self.create_timer(self.pub_topic_local_costmap_hz, self.update_costmap)
 
         # Initialize tf buffer and listener
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
-        # Initialize costmap processor
         self.get_terrain_preferred_costmap = BEVCostmap(model_path, adapted, label_obstacles).BEV_to_costmap
 
         self.LocalCostmapHelper = None
@@ -90,13 +90,6 @@ class LocalCostmapBuilder(Node):
         self.camera_msg = None
         self.yaw_angle = None
         self.occupany_grid_msg = None
-        
-        # GPU support check
-        self.use_gpu = cv2.cuda.getCudaEnabledDeviceCount() > 0
-        if self.use_gpu:
-            self.get_logger().info("GPU acceleration enabled for BEV processing")
-        else:
-            self.get_logger().warn("No GPU detected, using CPU for BEV processing")
 
     def camera_callback(self, msg):
         """
@@ -109,6 +102,7 @@ class LocalCostmapBuilder(Node):
         Args:
             msg (sensor_msgs.msg.Image): The incoming image message from the camera.
         """
+
         self.camera_msg = msg
 
         # Lookup transform from base_link to get orientation
@@ -133,6 +127,7 @@ class LocalCostmapBuilder(Node):
             msg (OccupancyGrid): The incoming OccupancyGrid message containing
                                  information about the local costmap.
         """
+        
         if self.LocalCostmapHelper is None:
             self.LocalCostmapHelper = LocalCostmapHelper(msg.info.resolution, msg.info.width, msg.info.height)
         self.occupany_grid_msg = msg
@@ -143,6 +138,7 @@ class LocalCostmapBuilder(Node):
         This function is dynamically updates the robot's local costmap with terrain-preferred costs
         based on real-time camera data and orientation.
         """
+    
         if not self.camera_msg or not self.yaw_angle or not self.occupany_grid_msg:
             if self.camera_msg is None:
                 self.get_logger().debug("Camera message is None")
@@ -157,13 +153,8 @@ class LocalCostmapBuilder(Node):
         image_data = np.frombuffer(self.camera_msg.data, dtype=np.uint8).reshape(
             self.camera_msg.height, self.camera_msg.width, -1
         )
-        
-        # Use GPU-accelerated version if available
-        if self.use_gpu:
-            bev_image = get_BEV_image_gpu(image_data, self.H, (self.patch_size_px, self.patch_size_px), (7, 12))
-        else:
-            bev_image = get_BEV_image(image_data, self.H, (self.patch_size_px, self.patch_size_px), (7, 12))
-        
+        # Preview the image using OpenCV
+        bev_image = get_BEV_image(image_data, self.H, (self.patch_size_px, self.patch_size_px), (7, 12))
         ros_image = self.bridge.cv2_to_imgmsg(bev_image, encoding="bgr8")
         self.bev_img_publisher.publish(ros_image)
 
@@ -208,15 +199,13 @@ class LocalCostmapHelper:
     def set_costs_in_region(self, x_m, y_m, cell_size_m, terrain_costmap):
         """
         Upscale the BEV costs and paste it onto the correct region of the local costmap.
-        OPTIMIZED: Uses cv2.resize instead of nested loops for 10x speedup.
-        
         Args:
             x_m: X coordinate in meters
             y_m: Y coordinate in meters
             cell_size_m: Cell size in meters
             terrain_costmap: 2D numpy array
         Returns:
-            2D numpy array of upscaled costs
+            1D numpy array of upscaled costs
         """
         upscale_factor = int(cell_size_m / self.resolution)
 
@@ -227,7 +216,9 @@ class LocalCostmapHelper:
         height_cells = upscale_factor * len(terrain_costmap)
 
         # Calculate the bottom-left corner of the region in cell coordinates
+        # x = self.center_x + offset_x_cells
         x = self.center_x + offset_x_cells - width_cells // 2
+        # y = self.center_y + offset_y_cells
         y = self.center_y + offset_y_cells - height_cells
 
         # Scale the data array to account for the resolution
@@ -236,52 +227,27 @@ class LocalCostmapHelper:
     def upsample_2d_array(self, arr, factor, x_start, y_start):
         """
         Upsample a 2D array by a factor.
-        OPTIMIZED: Uses cv2.resize instead of nested Python loops for massive speedup.
-        
         Args:
-            arr: The original 2D array (numpy array or list of lists)
-            factor: Upscale factor
-            x_start: Starting x position in canvas
-            y_start: Starting y position in canvas
+            arr (list of list): The original 2D array.
         Returns:
-            2D numpy array: The upsampled array on canvas
+            list of list: The upsampled 2D array.
         """
-        # Convert to numpy if needed
-        if not isinstance(arr, np.ndarray):
-            arr = np.array(arr)
-        
-        # Handle -1 values (unknown/unoccupied) by shifting to 0 for processing
-        arr_shifted = arr.astype(np.int16) + 1  # Shift -1 to 0
-        arr_shifted = np.clip(arr_shifted, 0, 255).astype(np.uint8)
-        
-        # Use OpenCV resize for fast upsampling (much faster than nested loops)
-        height, width = arr.shape
-        upscaled = cv2.resize(
-            arr_shifted,
-            (width * factor, height * factor),
-            interpolation=cv2.INTER_NEAREST  # Use nearest neighbor to preserve discrete cost values
-        )
-        
-        # Convert back to int8 and restore -1 values
-        upscaled = upscaled.astype(np.int16) - 1
-        
-        # Create canvas
-        canvas = np.full((self.height_cells, self.width_cells), -1, dtype=np.int8)
-        
-        # Calculate paste bounds with clipping
-        height_cells, width_cells = upscaled.shape
-        y_end = min(y_start + height_cells, self.height_cells)
-        x_end = min(x_start + width_cells, self.width_cells)
-        y_src_start = max(-y_start, 0)
-        x_src_start = max(-x_start, 0)
-        y_start = max(y_start, 0)
-        x_start = max(x_start, 0)
-        
-        y_src_end = y_src_start + (y_end - y_start)
-        x_src_end = x_src_start + (x_end - x_start)
-        
-        # Paste upscaled data onto canvas
-        canvas[y_start:y_end, x_start:x_end] = upscaled[y_src_start:y_src_end, x_src_start:x_src_end]
+        canvas = np.full((self.height_cells, self.width_cells), -1, dtype=int)
+
+        # Get the dimensions of the original array
+        height = len(arr)
+        width = len(arr[0]) if height > 0 else 0
+
+        # Fill the upsampled array
+        for i in range(height):
+            for j in range(width):
+                # Get the value from the original array
+                value = arr[i][j]
+
+                # Fill the corresponding block in the upsampled array
+                for di in range(factor):
+                    for dj in range(factor):
+                        canvas[y_start + factor * i + di][x_start + factor * j + dj] = value
 
         return canvas
 
@@ -308,7 +274,7 @@ class LocalCostmapHelper:
             data_2d: 2D numpy array
             angle: Angle in degrees
         Returns:
-            rotated_data: 2D numpy array
+            rotated_data: 1D list
         """
         height, width = data_2d.shape
         center = (width // 2, height // 2)
