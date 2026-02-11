@@ -57,90 +57,69 @@ def get_BEV_image(image, H, patch_size=(128, 128), grid_size=(7, 12), visualize=
 
 def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visualize=False):
     """
-    GPU-accelerated BEV stitching with maximum performance.
-    All warping and stitching is done on GPU with true parallelism.
-    Returns CPU numpy array (BGR image) at the end.
+    Ultra-fast GPU BEV generation using a SINGLE warpPerspective call.
+    Instead of warping 84 patches separately, we warp the entire output image at once.
     """
     if cv2.cuda.getCudaEnabledDeviceCount() == 0:
         raise RuntimeError("No CUDA device found - cannot use GPU version")
 
     rows, cols = grid_size
-    pw, ph = patch_size  # patch width, height
+    pw, ph = patch_size
 
-    total_width  = cols * pw
+    total_width = cols * pw
     total_height = rows * ph
 
-    # 1. Upload input image to GPU (once)
+    # Calculate the homography that maps the entire BEV grid at once
+    # This is just the base homography with the origin shift applied
+    origin_shift = (pw, ph * 2 + 60)
+    
+    # The center of our output image in the BEV coordinate system
+    center_x = total_width // 2
+    center_y = total_height // 2
+    
+    # Adjust homography to account for output image center and origin shift
+    T_adjust = np.array([
+        [1, 0, origin_shift[0] - center_x],
+        [0, 1, origin_shift[1] - center_y],
+        [0, 0, 1]
+    ], dtype=np.float32)
+    
+    H_full = T_adjust @ H
+
+    # Single GPU operations
     gpu_img = cv2.cuda_GpuMat()
     gpu_img.upload(image)
-
-    # 2. Create large output GpuMat on GPU
-    stitched_gpu = cv2.cuda_GpuMat((total_height, total_width), cv2.CV_8UC3)
-    stitched_gpu.setTo((0, 0, 0))
-
-    # 3. Precompute all homographies and target ROIs
-    origin_shift = (pw, ph * 2 + 60)
-    homographies = []
-    rois = []
-
-    for i in range(rows - 1, -1, -1):
-        for j in range(cols - 1, -1, -1):
-            grid_i = i - rows // 2
-            grid_j = j - cols // 2
-
-            x_shift = grid_j * pw + origin_shift[0]
-            y_shift = grid_i * ph + origin_shift[1]
-
-            T_shift = np.array([[1, 0, x_shift],
-                                [0, 1, y_shift],
-                                [0, 0, 1]], dtype=np.float32)
-
-            H_shifted = T_shift @ H
-            homographies.append(H_shifted)
-
-            roi_x = (cols - 1 - j) * pw
-            roi_y = (rows - 1 - i) * ph
-            rois.append((roi_x, roi_y, pw, ph))
-
-    # 4. BATCH PROCESSING: Warp all patches first, then copy all
-    num_streams = 8  # Increased for better parallelism
-    streams = [cv2.cuda_Stream() for _ in range(num_streams)]
-    temp_patches = [cv2.cuda_GpuMat() for _ in range(len(homographies))]  # One per patch!
-
-    # PHASE 1: Launch ALL warps in parallel
-    for idx, H_shifted in enumerate(homographies):
-        s = streams[idx % num_streams]
-        
-        cv2.cuda.warpPerspective(
-            src=gpu_img,
-            M=H_shifted,
-            dsize=(pw, ph),
-            dst=temp_patches[idx],
-            flags=cv2.INTER_NEAREST,  # FASTER than INTER_LINEAR
-            borderMode=cv2.BORDER_CONSTANT,
-            borderValue=(0, 0, 0),
-            stream=s
-        )
-
-    # PHASE 2: Wait for all warps to complete
-    for s in streams:
-        s.waitForCompletion()
-
-    # PHASE 3: Copy all patches to final image (fast, sequential is fine)
-    for idx, (x, y, w, h) in enumerate(rois):
-        roi = stitched_gpu.rowRange(y, y + h).colRange(x, x + w)
-        temp_patches[idx].copyTo(roi)
-
-    # 5. Download the final stitched image to CPU (only one download)
+    
+    stitched_gpu = cv2.cuda_GpuMat()
+    
+    # ONE warp for the entire output image!
+    cv2.cuda.warpPerspective(
+        src=gpu_img,
+        M=H_full,
+        dsize=(total_width, total_height),
+        dst=stitched_gpu,
+        flags=cv2.INTER_LINEAR,  # Can use INTER_NEAREST for even more speed
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=(0, 0, 0)
+    )
+    
+    # Download result
     stitched_cpu = stitched_gpu.download()
 
-    # Optional visualization (on CPU)
     if visualize:
+        # Visualization code same as before
         annotated_image = image.copy()
-
-        for H_shifted in homographies:
-            annotated_image = draw_points(annotated_image, H_shifted, patch_size,
-                                         color=(0, 255, 0), thickness=2)
+        
+        # For visualization, we need to show where patches would be
+        origin_shift = (pw, ph * 2 + 60)
+        for i in range(-rows // 2, rows // 2):
+            for j in range(-cols // 2, cols // 2):
+                x_shift = j * pw + origin_shift[0]
+                y_shift = i * ph + origin_shift[1]
+                T_shift = np.array([[1, 0, x_shift], [0, 1, y_shift], [0, 0, 1]], dtype=np.float32)
+                H_shifted = T_shift @ H
+                annotated_image = draw_points(annotated_image, H_shifted, patch_size,
+                                             color=(0, 255, 0), thickness=2)
 
         cv2.imshow("Current Image with patches", annotated_image)
 
