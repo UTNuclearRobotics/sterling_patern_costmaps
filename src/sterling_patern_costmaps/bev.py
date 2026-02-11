@@ -102,10 +102,11 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
         borderMode=cv2.BORDER_CONSTANT,
         borderValue=(0, 0, 0)
     )
+    
+    # Download to CPU BEFORE visualization or return
+    stitched_cpu = stitched_gpu.download()
 
     if visualize:
-        # Download result
-        stitched_cpu = stitched_gpu.download()
         # Visualization code same as before
         annotated_image = image.copy()
         
@@ -132,7 +133,8 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-    return stitched_gpu
+    # Return numpy array, not GpuMat
+    return stitched_cpu
 
 def draw_points(image, H, patch_size=(128, 128), color=(0, 255, 0), thickness=2):
     """
