@@ -1,12 +1,12 @@
 panther/sterling: # Make sure namespace matches
   local_costmap_builder:
     ros__parameters:
-      sub_topic_camera: "/panther/oakd2/oak_d_node/rgb/image_rect_color"
+      sub_topic_camera: "/oak/rgb/image_rect"
       sub_topic_local_costmap: "/local_costmap/costmap"
       pub_topic_local_costmap: "/panther/sterling/local_costmap"
       pub_topic_bev_img: "/panther/sterling/bev_img"
       pub_topic_local_costmap_hz: 0.2
-      model_path: "/root/ros2_ws/src/sterling_patern_costmaps/models"
+      model_path: "/root/ros2_ws/sp_dev/src/sterling_patern_costmaps/models"
       # True, if you want to run the adapted Patern model. This looks for _adapted.pt files in the model folder.
       adapted: True
       # True, if you want to allow model to label obstacles from terrain
