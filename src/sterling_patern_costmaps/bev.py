@@ -103,8 +103,12 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
         borderValue=(0, 0, 0)
     )
     
-    # Download to CPU BEFORE visualization or return
+    # Download to CPU and ensure it's a proper numpy array
     stitched_cpu = stitched_gpu.download()
+    
+    # CRITICAL: Convert to numpy array if it's not already
+    if not isinstance(stitched_cpu, np.ndarray):
+        stitched_cpu = np.array(stitched_cpu)
 
     if visualize:
         # Visualization code same as before
@@ -133,8 +137,8 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-    # Return numpy array, not GpuMat
-    return stitched_cpu
+    # Ensure return is a numpy array
+    return np.asarray(stitched_cpu)
 
 def draw_points(image, H, patch_size=(128, 128), color=(0, 255, 0), thickness=2):
     """
