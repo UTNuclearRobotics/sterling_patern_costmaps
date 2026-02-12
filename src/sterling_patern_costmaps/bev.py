@@ -104,7 +104,18 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
     )
     
     # Download result
-    stitched_cpu = np.array(stitched_gpu.download())
+    stitched_cpu = stitched_gpu.download()
+
+    # Ensure proper numpy array format
+    if stitched_cpu is None or stitched_cpu.size == 0:
+        raise RuntimeError("GPU BEV generation failed - empty result")
+        
+    # Make sure it's contiguous and properly shaped
+    stitched_cpu = np.ascontiguousarray(stitched_cpu)
+
+    # Verify shape
+    if len(stitched_cpu.shape) != 3:
+        raise RuntimeError(f"Unexpected BEV shape: {stitched_cpu.shape}, expected (H, W, 3)")
 
     if visualize:
         # Visualization code same as before

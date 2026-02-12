@@ -159,6 +159,10 @@ class LocalCostmapBuilder(Node):
         # Preview the image using OpenCV
         bev_image = get_BEV_image_gpu(image_data, self.H, (self.patch_size_px, self.patch_size_px), (7, 12))
         t1 = time.time()
+        # Debug the BEV image
+        self.get_logger().info(f"BEV image type: {type(bev_image)}")
+        self.get_logger().info(f"BEV image shape: {bev_image.shape if hasattr(bev_image, 'shape') else 'NO SHAPE'}")
+        self.get_logger().info(f"BEV image dtype: {bev_image.dtype if hasattr(bev_image, 'dtype') else 'NO DTYPE'}")
         ros_image = self.bridge.cv2_to_imgmsg(bev_image, encoding="bgr8")
         self.bev_img_publisher.publish(ros_image)
 
