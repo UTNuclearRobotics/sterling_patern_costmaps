@@ -7,6 +7,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image
 from tf2_ros import Buffer, TransformListener
 from cv_bridge import CvBridge
+import time
 
 from sterling_patern_costmaps.bev import get_BEV_image, get_BEV_image_gpu
 from sterling_patern_costmaps.bev_costmap import BEVCostmap
@@ -153,13 +154,18 @@ class LocalCostmapBuilder(Node):
         image_data = np.frombuffer(self.camera_msg.data, dtype=np.uint8).reshape(
             self.camera_msg.height, self.camera_msg.width, -1
         )
+        start = time.time()
         # Preview the image using OpenCV
         bev_image = get_BEV_image(image_data, self.H, (self.patch_size_px, self.patch_size_px), (7, 12))
+        t1 = time.time()
         ros_image = self.bridge.cv2_to_imgmsg(bev_image, encoding="bgr8")
         self.bev_img_publisher.publish(ros_image)
 
         # Get terrain preferred costmap
         terrain_costmap = self.get_terrain_preferred_costmap(bev_image, self.patch_size_px)
+        t2 = time.time()
+        print(f"BEV generation: {(t1-start)*1000:.2f}ms")
+        print(f"Costmap inference: {(t2-t1)*1000:.2f}ms")
         # self.get_logger().info(f"Costmap:\n{terrain_costmap}")
 
         # TODO: Bug that the costmap is flipped horizontally
