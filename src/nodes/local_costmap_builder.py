@@ -157,7 +157,7 @@ class LocalCostmapBuilder(Node):
         )
         start = time.time()
         # Preview the image using OpenCV
-        bev_image = get_BEV_image_gpu(image_data, self.H, (self.patch_size_px, self.patch_size_px), (7, 12))
+        bev_image = get_BEV_image(image_data, self.H, (self.patch_size_px, self.patch_size_px), (7, 12))
         t1 = time.time()
         # Debug the BEV image
         self.get_logger().info(f"BEV image type: {type(bev_image)}")
