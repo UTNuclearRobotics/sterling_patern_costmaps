@@ -143,6 +143,14 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
         map_y = (transformed[:, :, 1] / transformed[:, :, 2]).astype(np.float32)
         map_x = np.ascontiguousarray(map_x)
         map_y = np.ascontiguousarray(map_y)
+
+        if logger:
+            logger.info(f"DEBUG: map_x min/max: {map_x.min()}/{map_x.max()}")
+            logger.info(f"DEBUG: map_y min/max: {map_y.min()}/{map_y.max()}")
+            logger.info(f"DEBUG: map_x has NaN: {np.isnan(map_x).any()}")
+            logger.info(f"DEBUG: map_y has NaN: {np.isnan(map_y).any()}")
+            logger.info(f"DEBUG: map_x has Inf: {np.isinf(map_x).any()}")
+            logger.info(f"DEBUG: map_y has Inf: {np.isinf(map_y).any()}")
         
         if logger:
             logger.info(f"DEBUG: Maps ready - shape: {map_x.shape}")
@@ -160,19 +168,31 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
         if logger:
             logger.info("DEBUG: Performing GPU remap...")
         gpu_output = cv2.cuda_GpuMat()
+
+        # Try without specifying borderValue first
         cv2.cuda.remap(
             gpu_img,
             gpu_map_x,
             gpu_map_y,
             cv2.INTER_LINEAR,
             gpu_output,
-            cv2.BORDER_CONSTANT,
-            (0, 0, 0, 0)
+            cv2.BORDER_CONSTANT
         )
-        
+
         if logger:
+            logger.info(f"DEBUG: GPU remap complete, output empty: {gpu_output.empty()}")
+            logger.info(f"DEBUG: GPU output size: {gpu_output.size()}")
+            logger.info(f"DEBUG: GPU output channels: {gpu_output.channels()}")
             logger.info("DEBUG: Downloading result...")
+
         stitched_image = gpu_output.download()
+
+        if logger:
+            logger.info(f"DEBUG: Download returned None: {stitched_image is None}")
+            if stitched_image is not None:
+                logger.info(f"DEBUG: Success! Shape: {stitched_image.shape}")
+            else:
+                logger.error("DEBUG: Download returned None - checking if output is empty")
         
         if logger:
             logger.info(f"DEBUG: Success! Shape: {stitched_image.shape}")
