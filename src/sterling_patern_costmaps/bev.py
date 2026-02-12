@@ -55,139 +55,135 @@ def get_BEV_image(image, H, patch_size=(128, 128), grid_size=(7, 12), visualize=
 
     return stitched_image
 
-def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visualize=False):
+def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visualize=False, logger=None):
     """
     Ultra-fast GPU BEV generation using pre-computed remap and a SINGLE GPU operation.
-    This achieves maximum speedup by avoiding loops entirely.
+    Fully vectorized - no loops!
     """
-    if cv2.cuda.getCudaEnabledDeviceCount() == 0:
-        raise RuntimeError("No CUDA device found - cannot use GPU version")
-
-    rows, cols = grid_size
-    patch_width, patch_height = patch_size
-    origin_shift = (patch_size[0], patch_size[1] * 2 + 60)
-
-    # Output dimensions
-    total_width = cols * patch_width
-    total_height = rows * patch_height
-
-    # Pre-compute all homographies (one per patch)
-    homographies = []
-    for i in range(-rows // 2, rows // 2):
-        for j in range(-cols // 2, cols // 2):
-            x_shift = j * patch_size[0] + origin_shift[0]
-            y_shift = i * patch_size[1] + origin_shift[1]
-            T_shift = np.array([[1, 0, x_shift], [0, 1, y_shift], [0, 0, 1]], dtype=np.float32)
-            H_shifted = (T_shift @ H).astype(np.float32)
-            homographies.append(H_shifted)
-    
-    # Create coordinate grids for the entire output image
-    y_coords, x_coords = np.mgrid[0:total_height, 0:total_width].astype(np.float32)
-    
-    # Local coordinates within each patch
-    local_x = x_coords % patch_width
-    local_y = y_coords % patch_height
-    
-    # Homogeneous coordinates for local patch positions
-    ones = np.ones_like(local_x)
-    local_coords = np.stack([local_x, local_y, ones], axis=-1)  # (H, W, 3)
-    
-    # Initialize output maps
-    map_x = np.zeros((total_height, total_width), dtype=np.float32)
-    map_y = np.zeros((total_height, total_width), dtype=np.float32)
-    
-    # For each patch, compute the inverse transformation
-    # Account for the reversal in concatenation
-    for i in range(rows):
-        for j in range(cols):
-            # Patch indices in the loop order
-            patch_idx = i * cols + j
-            H_shifted = homographies[patch_idx]
-            H_inv = np.linalg.inv(H_shifted).astype(np.float32)
-            
-            # Reverse the column order ([::-1] in hconcat)
-            actual_col = cols - 1 - j
-            # Reverse the row order ([::-1] in vconcat)
-            actual_row = rows - 1 - i
-            
-            # Mask for this patch in the output image
-            y_start = actual_row * patch_height
-            y_end = (actual_row + 1) * patch_height
-            x_start = actual_col * patch_width
-            x_end = (actual_col + 1) * patch_width
-            
-            # Get local coordinates for this patch
-            patch_local_coords = local_coords[y_start:y_end, x_start:x_end]  # (pH, pW, 3)
-            
-            # Apply inverse homography: H_inv @ [x, y, 1]
-            # Reshape for batch matrix multiply
-            coords_flat = patch_local_coords.reshape(-1, 3)  # (pH*pW, 3)
-            transformed = (H_inv @ coords_flat.T).T  # (pH*pW, 3)
-            
-            # Convert from homogeneous to Cartesian coordinates
-            transformed_x = transformed[:, 0] / transformed[:, 2]
-            transformed_y = transformed[:, 1] / transformed[:, 2]
-            
-            # Reshape back to patch dimensions
-            transformed_x = transformed_x.reshape(patch_height, patch_width)
-            transformed_y = transformed_y.reshape(patch_height, patch_width)
-            
-            # Fill the corresponding region in the output maps
-            map_x[y_start:y_end, x_start:x_end] = transformed_x
-            map_y[y_start:y_end, x_start:x_end] = transformed_y
-    
-    # Upload everything to GPU
-    gpu_img = cv2.cuda_GpuMat()
-    gpu_img.upload(image)
-    
-    gpu_map_x = cv2.cuda_GpuMat()
-    gpu_map_x.upload(map_x)
-    
-    gpu_map_y = cv2.cuda_GpuMat()
-    gpu_map_y.upload(map_y)
-    
-    # Single GPU remap operation
-    gpu_output = cv2.cuda_GpuMat()
-    cv2.cuda.remap(
-        gpu_img,              # src
-        gpu_map_x,            # xmap  
-        gpu_map_y,            # ymap
-        cv2.INTER_LINEAR,     # interpolation
-        gpu_output,           # dst
-        cv2.BORDER_CONSTANT,  # borderMode
-        (0, 0, 0, 0)          # borderValue as 4-tuple
-    )
-    
-    # Download result
-    stitched_image = gpu_output.download()
-    
-    if visualize:
-        annotated_image = image.copy()
+    try:
+        if logger:
+            logger.info("=" * 60)
+            logger.info("DEBUG: Starting get_BEV_image_gpu")
+            logger.info(f"DEBUG: Input image shape: {image.shape}, dtype: {image.dtype}")
+            logger.info(f"DEBUG: H shape: {H.shape}, dtype: {H.dtype}")
         
-        # Visualize patch boundaries
-        for i in range(-rows // 2, rows // 2):
-            for j in range(-cols // 2, cols // 2):
-                x_shift = j * patch_width + origin_shift[0]
-                y_shift = i * patch_height + origin_shift[1]
-                T_shift = np.array([[1, 0, x_shift], [0, 1, y_shift], [0, 0, 1]], dtype=np.float32)
-                H_shifted = T_shift @ H
-                annotated_image = draw_points(annotated_image, H_shifted, patch_size,
-                                             color=(0, 255, 0), thickness=2)
+        if cv2.cuda.getCudaEnabledDeviceCount() == 0:
+            raise RuntimeError("No CUDA device found - cannot use GPU version")
+        if logger:
+            logger.info("DEBUG: CUDA device found")
 
-        cv2.imshow("Current Image with patches", annotated_image)
+        rows, cols = grid_size
+        patch_width, patch_height = patch_size
+        origin_shift = (patch_size[0], patch_size[1] * 2 + 60)
 
-        # Draw grid lines
-        grid_img = stitched_image.copy()
-        for i in range(rows + 1):
-            cv2.line(grid_img, (0, i * patch_height), (total_width, i * patch_height), (0, 255, 0), 2)
-        for j in range(cols + 1):
-            cv2.line(grid_img, (j * patch_width, 0), (j * patch_width, total_height), (0, 255, 0), 2)
+        total_width = cols * patch_width
+        total_height = rows * patch_height
+        if logger:
+            logger.info(f"DEBUG: Output dimensions: {total_width}x{total_height}")
 
-        cv2.imshow("Stitched BEV Image", grid_img)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
-    return stitched_image
+        # Vectorized homography computation
+        if logger:
+            logger.info("DEBUG: Computing homographies...")
+        i_range = np.arange(-rows // 2, rows // 2)
+        j_range = np.arange(-cols // 2, cols // 2)
+        j_grid, i_grid = np.meshgrid(j_range, i_range)
+        
+        x_shifts = j_grid * patch_size[0] + origin_shift[0]
+        y_shifts = i_grid * patch_size[1] + origin_shift[1]
+        
+        T_shifts = np.zeros((rows, cols, 3, 3), dtype=np.float32)
+        T_shifts[:, :, 0, 0] = 1
+        T_shifts[:, :, 1, 1] = 1
+        T_shifts[:, :, 2, 2] = 1
+        T_shifts[:, :, 0, 2] = x_shifts
+        T_shifts[:, :, 1, 2] = y_shifts
+        
+        if logger:
+            logger.info(f"DEBUG: T_shifts shape: {T_shifts.shape}")
+            logger.info("DEBUG: Computing H_shifted_all...")
+        H_shifted_all = T_shifts @ H[np.newaxis, np.newaxis, :, :]
+        
+        if logger:
+            logger.info(f"DEBUG: H_shifted_all shape: {H_shifted_all.shape}")
+            logger.info("DEBUG: Computing inverse homographies...")
+        H_inv_all = np.linalg.inv(H_shifted_all)
+        
+        if logger:
+            logger.info(f"DEBUG: H_inv_all shape: {H_inv_all.shape}")
+            logger.info("DEBUG: Creating coordinate grids...")
+        y_coords, x_coords = np.mgrid[0:total_height, 0:total_width].astype(np.float32)
+        
+        if logger:
+            logger.info("DEBUG: Computing patch indices...")
+        patch_row_idx = y_coords // patch_height
+        patch_col_idx = x_coords // patch_width
+        actual_row_idx = rows - 1 - patch_row_idx
+        actual_col_idx = cols - 1 - patch_col_idx
+        
+        local_x = x_coords % patch_width
+        local_y = y_coords % patch_height
+        
+        if logger:
+            logger.info("DEBUG: Indexing H_inv per pixel...")
+        H_inv_per_pixel = H_inv_all[actual_row_idx.astype(int), actual_col_idx.astype(int)]
+        
+        if logger:
+            logger.info(f"DEBUG: H_inv_per_pixel shape: {H_inv_per_pixel.shape}")
+            logger.info("DEBUG: Creating homogeneous coordinates...")
+        local_coords = np.stack([local_x, local_y, np.ones_like(local_x)], axis=-1)[..., np.newaxis]
+        
+        if logger:
+            logger.info("DEBUG: Applying inverse homography...")
+        transformed = H_inv_per_pixel @ local_coords
+        transformed = transformed.squeeze(-1)
+        
+        if logger:
+            logger.info("DEBUG: Converting to Cartesian coordinates...")
+        map_x = (transformed[:, :, 0] / transformed[:, :, 2]).astype(np.float32)
+        map_y = (transformed[:, :, 1] / transformed[:, :, 2]).astype(np.float32)
+        map_x = np.ascontiguousarray(map_x)
+        map_y = np.ascontiguousarray(map_y)
+        
+        if logger:
+            logger.info(f"DEBUG: Maps ready - shape: {map_x.shape}")
+            logger.info("DEBUG: Uploading to GPU...")
+        
+        gpu_img = cv2.cuda_GpuMat()
+        gpu_img.upload(image)
+        
+        gpu_map_x = cv2.cuda_GpuMat()
+        gpu_map_x.upload(map_x)
+        
+        gpu_map_y = cv2.cuda_GpuMat()
+        gpu_map_y.upload(map_y)
+        
+        if logger:
+            logger.info("DEBUG: Performing GPU remap...")
+        gpu_output = cv2.cuda_GpuMat()
+        cv2.cuda.remap(
+            gpu_img,
+            gpu_map_x,
+            gpu_map_y,
+            cv2.INTER_LINEAR,
+            gpu_output,
+            cv2.BORDER_CONSTANT,
+            (0, 0, 0, 0)
+        )
+        
+        if logger:
+            logger.info("DEBUG: Downloading result...")
+        stitched_image = gpu_output.download()
+        
+        if logger:
+            logger.info(f"DEBUG: Success! Shape: {stitched_image.shape}")
+        return stitched_image
+        
+    except Exception as e:
+        if logger:
+            logger.error(f"ERROR in get_BEV_image_gpu: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
 
 def draw_points(image, H, patch_size=(128, 128), color=(0, 255, 0), thickness=2):
     """
