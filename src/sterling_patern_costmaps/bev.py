@@ -58,26 +58,23 @@ def get_BEV_image(image, H, patch_size=(128, 128), grid_size=(7, 12), visualize=
 def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visualize=False):
     """
     Ultra-fast GPU BEV generation using a SINGLE warpPerspective call.
-    Instead of warping 84 patches separately, we warp the entire output image at once.
     """
     if cv2.cuda.getCudaEnabledDeviceCount() == 0:
         raise RuntimeError("No CUDA device found - cannot use GPU version")
 
+    print(f"DEBUG: Input image shape: {image.shape}, dtype: {image.dtype}")
+    
     rows, cols = grid_size
     pw, ph = patch_size
 
     total_width = cols * pw
     total_height = rows * ph
 
-    # Calculate the homography that maps the entire BEV grid at once
-    # This is just the base homography with the origin shift applied
+    # Calculate the homography
     origin_shift = (pw, ph * 2 + 60)
-    
-    # The center of our output image in the BEV coordinate system
     center_x = total_width // 2
     center_y = total_height // 2
     
-    # Adjust homography to account for output image center and origin shift
     T_adjust = np.array([
         [1, 0, origin_shift[0] - center_x],
         [0, 1, origin_shift[1] - center_y],
@@ -85,26 +82,37 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
     ], dtype=np.float32)
     
     H_full = T_adjust @ H
+    print(f"DEBUG: H_full dtype: {H_full.dtype}")
+    print(f"DEBUG: Output size: {total_width}x{total_height}")
 
-    # Single GPU operations
-    gpu_img = cv2.cuda_GpuMat()
-    gpu_img.upload(image)
+    # Upload to GPU
+    try:
+        gpu_img = cv2.cuda_GpuMat()
+        gpu_img.upload(image)
+        print(f"DEBUG: GPU upload successful, gpu_img size: {gpu_img.size()}")
+    except Exception as e:
+        raise RuntimeError(f"Failed to upload image to GPU: {e}")
     
     stitched_gpu = cv2.cuda_GpuMat()
     
-    # ONE warp for the entire output image!
-    cv2.cuda.warpPerspective(
-        src=gpu_img,
-        M=H_full,
-        dsize=(total_width, total_height),
-        dst=stitched_gpu,
-        flags=cv2.INTER_LINEAR,  # Can use INTER_NEAREST for even more speed
-        borderMode=cv2.BORDER_CONSTANT,
-        borderValue=(0, 0, 0)
-    )
+    # Warp operation
+    try:
+        cv2.cuda.warpPerspective(
+            src=gpu_img,
+            M=H_full,
+            dsize=(total_width, total_height),
+            dst=stitched_gpu,
+            flags=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=(0, 0, 0)
+        )
+        print(f"DEBUG: GPU warp successful, output size: {stitched_gpu.size()}")
+    except Exception as e:
+        raise RuntimeError(f"GPU warpPerspective failed: {e}")
     
     # Download result
     stitched_cpu = stitched_gpu.download()
+    print(f"DEBUG: Downloaded result shape: {stitched_cpu.shape if stitched_cpu is not None else 'None'}")
 
     # Ensure proper numpy array format
     if stitched_cpu is None or stitched_cpu.size == 0:
