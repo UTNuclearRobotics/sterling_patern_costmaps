@@ -57,84 +57,111 @@ def get_BEV_image(image, H, patch_size=(128, 128), grid_size=(7, 12), visualize=
 
 def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visualize=False):
     """
-    Ultra-fast GPU BEV generation using a SINGLE warpPerspective call.
+    Ultra-fast GPU BEV generation using pre-computed remap and a SINGLE GPU operation.
+    Fully vectorized - no loops!
     """
     if cv2.cuda.getCudaEnabledDeviceCount() == 0:
         raise RuntimeError("No CUDA device found - cannot use GPU version")
 
-    print(f"DEBUG: Input image shape: {image.shape}, dtype: {image.dtype}")
-    
     rows, cols = grid_size
-    pw, ph = patch_size
+    patch_width, patch_height = patch_size
+    origin_shift = (patch_size[0], patch_size[1] * 2 + 60)
 
-    total_width = cols * pw
-    total_height = rows * ph
+    # Output dimensions
+    total_width = cols * patch_width
+    total_height = rows * patch_height
 
-    # Calculate the homography
-    origin_shift = (pw, ph * 2 + 60)
-    center_x = total_width // 2
-    center_y = total_height // 2
+    # Vectorized homography computation
+    i_range = np.arange(-rows // 2, rows // 2)
+    j_range = np.arange(-cols // 2, cols // 2)
+    j_grid, i_grid = np.meshgrid(j_range, i_range)  # (rows, cols) each
     
-    T_adjust = np.array([
-        [1, 0, origin_shift[0] - center_x],
-        [0, 1, origin_shift[1] - center_y],
-        [0, 0, 1]
-    ], dtype=np.float32)
+    x_shifts = j_grid * patch_size[0] + origin_shift[0]  # (rows, cols)
+    y_shifts = i_grid * patch_size[1] + origin_shift[1]  # (rows, cols)
     
-    H_full = T_adjust @ H
-    print(f"DEBUG: H_full dtype: {H_full.dtype}")
-    print(f"DEBUG: Output size: {total_width}x{total_height}")
-
-    # Upload to GPU
-    try:
-        gpu_img = cv2.cuda_GpuMat()
-        gpu_img.upload(image)
-        print(f"DEBUG: GPU upload successful, gpu_img size: {gpu_img.size()}")
-    except Exception as e:
-        raise RuntimeError(f"Failed to upload image to GPU: {e}")
+    # Create all translation matrices at once
+    # Shape: (rows, cols, 3, 3)
+    T_shifts = np.zeros((rows, cols, 3, 3), dtype=np.float32)
+    T_shifts[:, :, 0, 0] = 1  # Identity diagonal
+    T_shifts[:, :, 1, 1] = 1
+    T_shifts[:, :, 2, 2] = 1
+    T_shifts[:, :, 0, 2] = x_shifts  # Translation x
+    T_shifts[:, :, 1, 2] = y_shifts  # Translation y
     
-    stitched_gpu = cv2.cuda_GpuMat()
+    # Batch matrix multiply: H_shifted = T_shift @ H for all patches
+    # Shape: (rows, cols, 3, 3)
+    H_shifted_all = T_shifts @ H[np.newaxis, np.newaxis, :, :]
     
-    # Warp operation
-    try:
-        cv2.cuda.warpPerspective(
-            src=gpu_img,
-            M=H_full,
-            dsize=(total_width, total_height),
-            dst=stitched_gpu,
-            flags=cv2.INTER_LINEAR,
-            borderMode=cv2.BORDER_CONSTANT,
-            borderValue=(0, 0, 0)
-        )
-        print(f"DEBUG: GPU warp successful, output size: {stitched_gpu.size()}")
-    except Exception as e:
-        raise RuntimeError(f"GPU warpPerspective failed: {e}")
+    # Compute inverse homographies (vectorized)
+    H_inv_all = np.linalg.inv(H_shifted_all)  # (rows, cols, 3, 3)
+    
+    # Create coordinate grids for the entire output image
+    y_coords, x_coords = np.mgrid[0:total_height, 0:total_width].astype(np.float32)
+    
+    # Determine which patch each pixel belongs to
+    patch_row_idx = y_coords // patch_height  # 0 to rows-1
+    patch_col_idx = x_coords // patch_width   # 0 to cols-1
+    
+    # Account for reversal: actual positions after [::-1]
+    actual_row_idx = rows - 1 - patch_row_idx
+    actual_col_idx = cols - 1 - patch_col_idx
+    
+    # Local coordinates within each patch
+    local_x = x_coords % patch_width
+    local_y = y_coords % patch_height
+    
+    # Get the appropriate H_inv for each pixel
+    # H_inv_all is indexed by (original_row, original_col)
+    # We need to reverse indices to match the homography computation order
+    H_inv_per_pixel = H_inv_all[actual_row_idx.astype(int), actual_col_idx.astype(int)]  # (H, W, 3, 3)
+    
+    # Create homogeneous coordinates (H, W, 3, 1)
+    local_coords = np.stack([local_x, local_y, np.ones_like(local_x)], axis=-1)[..., np.newaxis]
+    
+    # Apply inverse homography to all pixels at once
+    # H_inv_per_pixel: (H, W, 3, 3)
+    # local_coords: (H, W, 3, 1)
+    # Result: (H, W, 3, 1)
+    transformed = H_inv_per_pixel @ local_coords  # Broadcasting handles the batch matmul
+    transformed = transformed.squeeze(-1)  # (H, W, 3)
+    
+    # Convert from homogeneous to Cartesian
+    map_x = transformed[:, :, 0] / transformed[:, :, 2]
+    map_y = transformed[:, :, 1] / transformed[:, :, 2]
+    
+    # Upload everything to GPU
+    gpu_img = cv2.cuda_GpuMat()
+    gpu_img.upload(image)
+    
+    gpu_map_x = cv2.cuda_GpuMat()
+    gpu_map_x.upload(map_x)
+    
+    gpu_map_y = cv2.cuda_GpuMat()
+    gpu_map_y.upload(map_y)
+    
+    # Single GPU remap operation
+    gpu_output = cv2.cuda_GpuMat()
+    cv2.cuda.remap(
+        src=gpu_img,
+        map1=gpu_map_x,
+        map2=gpu_map_y,
+        interpolation=cv2.INTER_LINEAR,
+        dst=gpu_output,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=(0, 0, 0)
+    )
     
     # Download result
-    stitched_cpu = stitched_gpu.download()
-    print(f"DEBUG: Downloaded result shape: {stitched_cpu.shape if stitched_cpu is not None else 'None'}")
-
-    # Ensure proper numpy array format
-    if stitched_cpu is None or stitched_cpu.size == 0:
-        raise RuntimeError("GPU BEV generation failed - empty result")
-        
-    # Make sure it's contiguous and properly shaped
-    stitched_cpu = np.ascontiguousarray(stitched_cpu)
-
-    # Verify shape
-    if len(stitched_cpu.shape) != 3:
-        raise RuntimeError(f"Unexpected BEV shape: {stitched_cpu.shape}, expected (H, W, 3)")
-
+    stitched_image = gpu_output.download()
+    
     if visualize:
-        # Visualization code same as before
         annotated_image = image.copy()
         
-        # For visualization, we need to show where patches would be
-        origin_shift = (pw, ph * 2 + 60)
+        # Visualize patch boundaries
         for i in range(-rows // 2, rows // 2):
             for j in range(-cols // 2, cols // 2):
-                x_shift = j * pw + origin_shift[0]
-                y_shift = i * ph + origin_shift[1]
+                x_shift = j * patch_width + origin_shift[0]
+                y_shift = i * patch_height + origin_shift[1]
                 T_shift = np.array([[1, 0, x_shift], [0, 1, y_shift], [0, 0, 1]], dtype=np.float32)
                 H_shifted = T_shift @ H
                 annotated_image = draw_points(annotated_image, H_shifted, patch_size,
@@ -142,17 +169,18 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
 
         cv2.imshow("Current Image with patches", annotated_image)
 
-        grid_img = stitched_cpu.copy()
+        # Draw grid lines
+        grid_img = stitched_image.copy()
         for i in range(rows + 1):
-            cv2.line(grid_img, (0, i * ph), (total_width, i * ph), (0, 255, 0), 2)
+            cv2.line(grid_img, (0, i * patch_height), (total_width, i * patch_height), (0, 255, 0), 2)
         for j in range(cols + 1):
-            cv2.line(grid_img, (j * pw, 0), (j * pw, total_height), (0, 255, 0), 2)
+            cv2.line(grid_img, (j * patch_width, 0), (j * patch_width, total_height), (0, 255, 0), 2)
 
         cv2.imshow("Stitched BEV Image", grid_img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-    return stitched_cpu
+    return stitched_image
 
 def draw_points(image, H, patch_size=(128, 128), color=(0, 255, 0), thickness=2):
     """
