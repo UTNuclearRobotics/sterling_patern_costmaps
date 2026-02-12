@@ -83,7 +83,8 @@ class LocalCostmapBuilder(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
-        self.get_terrain_preferred_costmap = BEVCostmap(model_path, adapted, label_obstacles).BEV_to_costmap
+        self.bev_costmap = BEVCostmap(model_path, adapted, label_obstacles, logger=self.get_logger())
+        self.get_terrain_preferred_costmap = self.bev_costmap.BEV_to_costmap
 
         self.LocalCostmapHelper = None
 
@@ -156,7 +157,7 @@ class LocalCostmapBuilder(Node):
         )
         start = time.time()
         # Preview the image using OpenCV
-        bev_image = get_BEV_image(image_data, self.H, (self.patch_size_px, self.patch_size_px), (7, 12))
+        bev_image = get_BEV_image_gpu(image_data, self.H, (self.patch_size_px, self.patch_size_px), (7, 12))
         t1 = time.time()
         ros_image = self.bridge.cv2_to_imgmsg(bev_image, encoding="bgr8")
         self.bev_img_publisher.publish(ros_image)
@@ -164,8 +165,8 @@ class LocalCostmapBuilder(Node):
         # Get terrain preferred costmap
         terrain_costmap = self.get_terrain_preferred_costmap(bev_image, self.patch_size_px)
         t2 = time.time()
-        print(f"BEV generation: {(t1-start)*1000:.2f}ms")
-        print(f"Costmap inference: {(t2-t1)*1000:.2f}ms")
+        self.get_logger().info(f"BEV generation: {(t1-start)*1000:.2f}ms")
+        self.get_logger().info(f"Costmap inference: {(t2-t1)*1000:.2f}ms")
         # self.get_logger().info(f"Costmap:\n{terrain_costmap}")
 
         # TODO: Bug that the costmap is flipped horizontally
