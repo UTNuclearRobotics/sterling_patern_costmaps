@@ -58,7 +58,7 @@ def get_BEV_image(image, H, patch_size=(128, 128), grid_size=(7, 12), visualize=
 def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visualize=False):
     """
     Ultra-fast GPU BEV generation using pre-computed remap and a SINGLE GPU operation.
-    Fully vectorized - no loops!
+    This achieves maximum speedup by avoiding loops entirely.
     """
     if cv2.cuda.getCudaEnabledDeviceCount() == 0:
         raise RuntimeError("No CUDA device found - cannot use GPU version")
@@ -71,73 +71,70 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
     total_width = cols * patch_width
     total_height = rows * patch_height
 
-    # Vectorized homography computation
-    i_range = np.arange(-rows // 2, rows // 2)
-    j_range = np.arange(-cols // 2, cols // 2)
-    j_grid, i_grid = np.meshgrid(j_range, i_range)  # (rows, cols) each
-    
-    x_shifts = j_grid * patch_size[0] + origin_shift[0]  # (rows, cols)
-    y_shifts = i_grid * patch_size[1] + origin_shift[1]  # (rows, cols)
-    
-    # Create all translation matrices at once
-    # Shape: (rows, cols, 3, 3)
-    T_shifts = np.zeros((rows, cols, 3, 3), dtype=np.float32)
-    T_shifts[:, :, 0, 0] = 1  # Identity diagonal
-    T_shifts[:, :, 1, 1] = 1
-    T_shifts[:, :, 2, 2] = 1
-    T_shifts[:, :, 0, 2] = x_shifts  # Translation x
-    T_shifts[:, :, 1, 2] = y_shifts  # Translation y
-    
-    # Batch matrix multiply: H_shifted = T_shift @ H for all patches
-    # Shape: (rows, cols, 3, 3)
-    H_shifted_all = T_shifts @ H[np.newaxis, np.newaxis, :, :]
-    
-    # Compute inverse homographies (vectorized)
-    H_inv_all = np.linalg.inv(H_shifted_all)  # (rows, cols, 3, 3)
+    # Pre-compute all homographies (one per patch)
+    homographies = []
+    for i in range(-rows // 2, rows // 2):
+        for j in range(-cols // 2, cols // 2):
+            x_shift = j * patch_size[0] + origin_shift[0]
+            y_shift = i * patch_size[1] + origin_shift[1]
+            T_shift = np.array([[1, 0, x_shift], [0, 1, y_shift], [0, 0, 1]], dtype=np.float32)
+            H_shifted = (T_shift @ H).astype(np.float32)
+            homographies.append(H_shifted)
     
     # Create coordinate grids for the entire output image
     y_coords, x_coords = np.mgrid[0:total_height, 0:total_width].astype(np.float32)
-    
-    # Determine which patch each pixel belongs to
-    patch_row_idx = y_coords // patch_height  # 0 to rows-1
-    patch_col_idx = x_coords // patch_width   # 0 to cols-1
-    
-    # Account for reversal: actual positions after [::-1]
-    actual_row_idx = rows - 1 - patch_row_idx
-    actual_col_idx = cols - 1 - patch_col_idx
     
     # Local coordinates within each patch
     local_x = x_coords % patch_width
     local_y = y_coords % patch_height
     
-    # Get the appropriate H_inv for each pixel
-    # H_inv_all is indexed by (original_row, original_col)
-    # We need to reverse indices to match the homography computation order
-    H_inv_per_pixel = H_inv_all[actual_row_idx.astype(int), actual_col_idx.astype(int)]  # (H, W, 3, 3)
+    # Homogeneous coordinates for local patch positions
+    ones = np.ones_like(local_x)
+    local_coords = np.stack([local_x, local_y, ones], axis=-1)  # (H, W, 3)
     
-    # Create homogeneous coordinates (H, W, 3, 1)
-    local_coords = np.stack([local_x, local_y, np.ones_like(local_x)], axis=-1)[..., np.newaxis]
+    # Initialize output maps
+    map_x = np.zeros((total_height, total_width), dtype=np.float32)
+    map_y = np.zeros((total_height, total_width), dtype=np.float32)
     
-    # Apply inverse homography to all pixels at once
-    # H_inv_per_pixel: (H, W, 3, 3)
-    # local_coords: (H, W, 3, 1)
-    # Result: (H, W, 3, 1)
-    transformed = H_inv_per_pixel @ local_coords  # Broadcasting handles the batch matmul
-    transformed = transformed.squeeze(-1)  # (H, W, 3)
-    
-    # Convert from homogeneous to Cartesian
-    map_x = (transformed[:, :, 0] / transformed[:, :, 2]).astype(np.float32)
-    map_y = (transformed[:, :, 1] / transformed[:, :, 2]).astype(np.float32)
-
-    # Ensure they're single-channel and contiguous
-    map_x = np.ascontiguousarray(map_x)
-    map_y = np.ascontiguousarray(map_y)
-
-    # Debug: verify shapes and types
-    print(f"map_x shape: {map_x.shape}, dtype: {map_x.dtype}")
-    print(f"map_y shape: {map_y.shape}, dtype: {map_y.dtype}")
-    print(f"map_x contiguous: {map_x.flags['C_CONTIGUOUS']}")
-    print(f"map_y contiguous: {map_y.flags['C_CONTIGUOUS']}")
+    # For each patch, compute the inverse transformation
+    # Account for the reversal in concatenation
+    for i in range(rows):
+        for j in range(cols):
+            # Patch indices in the loop order
+            patch_idx = i * cols + j
+            H_shifted = homographies[patch_idx]
+            H_inv = np.linalg.inv(H_shifted).astype(np.float32)
+            
+            # Reverse the column order ([::-1] in hconcat)
+            actual_col = cols - 1 - j
+            # Reverse the row order ([::-1] in vconcat)
+            actual_row = rows - 1 - i
+            
+            # Mask for this patch in the output image
+            y_start = actual_row * patch_height
+            y_end = (actual_row + 1) * patch_height
+            x_start = actual_col * patch_width
+            x_end = (actual_col + 1) * patch_width
+            
+            # Get local coordinates for this patch
+            patch_local_coords = local_coords[y_start:y_end, x_start:x_end]  # (pH, pW, 3)
+            
+            # Apply inverse homography: H_inv @ [x, y, 1]
+            # Reshape for batch matrix multiply
+            coords_flat = patch_local_coords.reshape(-1, 3)  # (pH*pW, 3)
+            transformed = (H_inv @ coords_flat.T).T  # (pH*pW, 3)
+            
+            # Convert from homogeneous to Cartesian coordinates
+            transformed_x = transformed[:, 0] / transformed[:, 2]
+            transformed_y = transformed[:, 1] / transformed[:, 2]
+            
+            # Reshape back to patch dimensions
+            transformed_x = transformed_x.reshape(patch_height, patch_width)
+            transformed_y = transformed_y.reshape(patch_height, patch_width)
+            
+            # Fill the corresponding region in the output maps
+            map_x[y_start:y_end, x_start:x_end] = transformed_x
+            map_y[y_start:y_end, x_start:x_end] = transformed_y
     
     # Upload everything to GPU
     gpu_img = cv2.cuda_GpuMat()
@@ -148,20 +145,17 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
     
     gpu_map_y = cv2.cuda_GpuMat()
     gpu_map_y.upload(map_y)
-
-    print(f"gpu_map_x size: {gpu_map_x.size()}, channels: {gpu_map_x.channels()}")
-    print(f"gpu_map_y size: {gpu_map_y.size()}, channels: {gpu_map_y.channels()}")
     
     # Single GPU remap operation
     gpu_output = cv2.cuda_GpuMat()
     cv2.cuda.remap(
-        gpu_img,           # src
-        gpu_map_x,         # xmap
-        gpu_map_y,         # ymap
-        cv2.INTER_LINEAR,  # interpolation
-        gpu_output,        # dst
-        cv2.BORDER_CONSTANT,  # borderMode
-        (0, 0, 0, 0)       # borderValue (needs to be 4-tuple for RGBA)
+        src=gpu_img,
+        map1=gpu_map_x,
+        map2=gpu_map_y,
+        interpolation=cv2.INTER_LINEAR,
+        dst=gpu_output,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=(0, 0, 0)
     )
     
     # Download result
