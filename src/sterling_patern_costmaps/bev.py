@@ -167,7 +167,7 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
         
         if logger:
             logger.info("DEBUG: Performing GPU remap...")
-        gpu_output = cv2.cuda_GpuMat()
+        gpu_output = cv2.cuda_GpuMat(total_height, total_width, gpu_img.type())
 
         # Try without specifying borderValue first
         cv2.cuda.remap(
