@@ -77,7 +77,7 @@ class LocalCostmapBuilder(Node):
         self.sterling_patern_costmap_publisher = self.create_publisher(OccupancyGrid, self.pub_topic_local_costmap, 10)
 
         # Timers
-        self.timer = self.create_timer(self.pub_topic_local_costmap_hz, self.update_costmap)
+        #self.timer = self.create_timer(self.pub_topic_local_costmap_hz, self.update_costmap)
 
         # Initialize tf buffer and listener
         self.tf_buffer = Buffer()
@@ -96,25 +96,23 @@ class LocalCostmapBuilder(Node):
     def camera_callback(self, msg):
         """
         Callback function for processing incoming camera image messages.
-
-        This function is triggered whenever a new image message is received from the camera subscriber.
-        It stores the received image message and attempts to compute the yaw angle of the robot by 
-        looking up the transform between the "base_link" and "map" frames.
-
-        Args:
-            msg (sensor_msgs.msg.Image): The incoming image message from the camera.
+        Now processes the image immediately instead of buffering.
         """
-
-        self.camera_msg = msg
-
         # Lookup transform from base_link to get orientation
         try:
             transform = self.tf_buffer.lookup_transform("panther/base_link", "map", rclpy.time.Time())
-            self.yaw_angle = LocalCostmapHelper.quarternion_to_euler(transform.transform.rotation)
-            # self.get_logger().info(f"Yaw angle: {np.degrees(yaw_angle)}")
+            yaw_angle = LocalCostmapHelper.quarternion_to_euler(transform.transform.rotation)
         except Exception as e:
             self.get_logger().error(f"Transform lookup failed: {e}")
             return
+
+        # Check if we have occupancy grid
+        if self.occupany_grid_msg is None:
+            self.get_logger().debug("Waiting for occupancy grid message...")
+            return
+
+        # Process the image immediately
+        self.process_camera_image(msg, yaw_angle)
 
     def costmap_callback(self, msg):
         """
@@ -133,6 +131,60 @@ class LocalCostmapBuilder(Node):
         if self.LocalCostmapHelper is None:
             self.LocalCostmapHelper = LocalCostmapHelper(msg.info.resolution, msg.info.width, msg.info.height)
         self.occupany_grid_msg = msg
+
+    def process_camera_image(self, camera_msg, yaw_angle):
+        """
+        Process a camera image and update the costmap.
+        Called directly from camera_callback for each new image.
+        """
+        start = time.time()
+        
+        # Get image data
+        image_data = np.frombuffer(camera_msg.data, dtype=np.uint8).reshape(
+            camera_msg.height, camera_msg.width, -1
+        )
+        
+        # Generate BEV on GPU and keep it there
+        gpu_bev_image = get_BEV_image_gpu(
+            image_data, 
+            self.H, 
+            (self.patch_size_px, self.patch_size_px), 
+            (7, 12),
+            logger=self.get_logger(),
+            return_gpu=True
+        )
+        
+        t1 = time.time()
+        
+        # Publish BEV image for visualization (needs CPU version)
+        bev_cpu = gpu_bev_image.download()
+        ros_image = self.bridge.cv2_to_imgmsg(bev_cpu, encoding="bgr8")
+        self.bev_img_publisher.publish(ros_image)
+        
+        # Get terrain preferred costmap (GPU pipeline)
+        terrain_costmap = self.get_terrain_preferred_costmap_gpu(gpu_bev_image, self.patch_size_px)
+        
+        t2 = time.time()
+        
+        self.get_logger().info(f"BEV generation (GPU): {(t1-start)*1000:.2f}ms")
+        self.get_logger().info(f"Costmap inference (GPU): {(t2-t1)*1000:.2f}ms")
+        
+        # TODO: Bug that the costmap is flipped horizontally
+        terrain_costmap = np.fliplr(terrain_costmap)
+
+        # Set costs in the region
+        data_2d = self.LocalCostmapHelper.set_costs_in_region(
+            0, -self.base_link_offset_m, self.patch_size_m, terrain_costmap
+        )
+
+        # Rotate the costmap by the yaw angle
+        rotated_data = LocalCostmapHelper.rotate_costmap(data_2d, np.degrees(yaw_angle) - 90)
+        rotated_data = np.array(rotated_data).flatten()
+
+        # Publish message
+        msg = self.occupany_grid_msg
+        msg.data = rotated_data.tolist()
+        self.sterling_patern_costmap_publisher.publish(msg)
 
     def update_costmap(self):
         """
