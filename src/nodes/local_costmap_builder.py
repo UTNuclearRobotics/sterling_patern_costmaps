@@ -83,7 +83,8 @@ class LocalCostmapBuilder(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
-        self.bev_costmap_gpu = BEVCostmapGPU(model_path, adapted, label_obstacles, logger=self.get_logger())
+        #self.bev_costmap_gpu = BEVCostmapGPU(model_path, adapted, label_obstacles, logger=self.get_logger())
+        self.bev_costmap_gpu = BEVCostmapGPU(model_path, adapted, label_obstacles)
         self.get_terrain_preferred_costmap_gpu = self.bev_costmap_gpu.BEV_to_costmap_gpu
 
         self.LocalCostmapHelper = None
@@ -150,7 +151,7 @@ class LocalCostmapBuilder(Node):
             self.H, 
             (self.patch_size_px, self.patch_size_px), 
             (7, 12),
-            logger=self.get_logger(),
+            logger=None,
             return_gpu=True
         )
         
