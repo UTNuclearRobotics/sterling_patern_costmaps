@@ -91,10 +91,9 @@ class BEVCostmapGPU:
         Extract patches from GPU BEV image - optimized version.
         Minimizes CPU involvement.
         """
-        import time
         t_start = time.time()
-        
-        # Convert GpuMat to numpy (unavoidable for now)
+    
+        # Download from GPU
         bev_cpu = gpu_bev_img.download()
         height, width = bev_cpu.shape[:2]
         num_cells_y, num_cells_x = height // cell_size, width // cell_size
@@ -103,7 +102,7 @@ class BEVCostmapGPU:
         effective_width = num_cells_x * cell_size
         bev_cpu = bev_cpu[:effective_height, :effective_width]
 
-        # RGB conversion on CPU (cheap)
+        # RGB conversion
         if bev_cpu.ndim == 2:
             bev_cpu = bev_cpu[..., np.newaxis]
         if bev_cpu.shape[2] == 1:
@@ -113,19 +112,17 @@ class BEVCostmapGPU:
             t_preprocess = time.time()
             self.logger.info(f"    Preprocessing: {(t_preprocess - t_start)*1000:.2f}ms")
         
-        # Convert to torch and upload in one operation (H, W, C) -> (1, C, H, W)
-        bev_tensor = torch.from_numpy(bev_cpu).permute(2, 0, 1).unsqueeze(0).float()
+        # Use pinned memory for faster transfer
+        bev_pinned = torch.from_numpy(bev_cpu).pin_memory()
+        bev_tensor = bev_pinned.permute(2, 0, 1).unsqueeze(0).float()
         bev_tensor = bev_tensor.to(self.device, non_blocking=True)
         
         if self.logger:
             t_upload = time.time()
-            self.logger.info(f"    Upload to GPU: {(t_upload - t_preprocess)*1000:.2f}ms")
+            self.logger.info(f"    Upload to GPU (pinned): {(t_upload - t_preprocess)*1000:.2f}ms")
         
         # Extract patches on GPU using unfold
         patches = bev_tensor.unfold(2, cell_size, cell_size).unfold(3, cell_size, cell_size)
-        # Shape: [1, 3, num_cells_y, num_cells_x, cell_size, cell_size]
-        
-        # Rearrange: [1, 3, ny, nx, cs, cs] -> [ny*nx, 3, cs, cs]
         patches = patches.permute(0, 2, 3, 1, 4, 5).contiguous()
         patches = patches.view(-1, 3, cell_size, cell_size)
         
@@ -146,7 +143,6 @@ class BEVCostmapGPU:
         Returns:
             costmap as numpy array (int8)
         """
-        import time
         t_start = time.time()
         
         # Extract patches and get as torch tensor on GPU
@@ -239,7 +235,6 @@ class BEVCostmap:
 
     def predict_preferences(self, cells):
         """Predict preferences for a batch of cells using the trained uvis model."""
-        import time
         
         t_start = time.time()
         
