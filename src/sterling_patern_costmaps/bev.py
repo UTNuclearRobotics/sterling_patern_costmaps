@@ -163,10 +163,13 @@ def get_BEV_image(image, H, patch_size=(128, 128), grid_size=(7, 12), visualize=
     return stitched_image
 
 
-def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visualize=False, logger=None):
+def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visualize=False, logger=None, return_gpu=False):
     """
     Ultra-fast GPU BEV generation using cached remap maps.
     Maps are computed once and reused for all subsequent frames.
+    
+    Args:
+        return_gpu: If True, returns cv2.cuda_GpuMat instead of numpy array
     """
     try:
         if cv2.cuda.getCudaEnabledDeviceCount() == 0:
@@ -194,16 +197,22 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
             cv2.BORDER_CONSTANT
         )
         
+        # Return GPU mat or download to CPU
+        if return_gpu:
+            if logger:
+                logger.info("DEBUG: Returning GPU BEV image (staying on GPU)")
+            return gpu_output
+        
         # Download result
         stitched_image = gpu_output.download()
         
         if visualize:
+            # Visualization code remains the same
             annotated_image = image.copy()
             rows, cols = grid_size
             patch_width, patch_height = patch_size
             origin_shift = (patch_size[0], patch_size[1] * 2 + 60)
             
-            # Visualize patch boundaries
             for i in range(-rows // 2, rows // 2):
                 for j in range(-cols // 2, cols // 2):
                     x_shift = j * patch_width + origin_shift[0]
@@ -215,7 +224,6 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
 
             cv2.imshow("Current Image with patches", annotated_image)
 
-            # Draw grid lines
             grid_img = stitched_image.copy()
             for i in range(rows + 1):
                 cv2.line(grid_img, (0, i * patch_height), (total_width, i * patch_height), (0, 255, 0), 2)

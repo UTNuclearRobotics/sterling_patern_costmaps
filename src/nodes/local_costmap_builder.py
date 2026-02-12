@@ -10,7 +10,7 @@ from cv_bridge import CvBridge
 import time
 
 from sterling_patern_costmaps.bev import get_BEV_image, get_BEV_image_gpu
-from sterling_patern_costmaps.bev_costmap import BEVCostmap
+from sterling_patern_costmaps.bev_costmap import BEVCostmap, BEVCostmapGPU
 
 
 class LocalCostmapBuilder(Node):
@@ -83,8 +83,8 @@ class LocalCostmapBuilder(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
-        self.bev_costmap = BEVCostmap(model_path, adapted, label_obstacles, logger=self.get_logger())
-        self.get_terrain_preferred_costmap = self.bev_costmap.BEV_to_costmap
+        self.bev_costmap_gpu = BEVCostmapGPU(model_path, adapted, label_obstacles, logger=self.get_logger())
+        self.get_terrain_preferred_costmap_gpu = self.bev_costmap_gpu.BEV_to_costmap_gpu
 
         self.LocalCostmapHelper = None
 
@@ -156,23 +156,37 @@ class LocalCostmapBuilder(Node):
             self.camera_msg.height, self.camera_msg.width, -1
         )
         start = time.time()
-        # Preview the image using OpenCV
-        bev_image = get_BEV_image_gpu(image_data, self.H, (self.patch_size_px, self.patch_size_px), (7, 12), logger=self.get_logger())
+    
+        # Get image data
+        image_data = np.frombuffer(self.camera_msg.data, dtype=np.uint8).reshape(
+            self.camera_msg.height, self.camera_msg.width, -1
+        )
+        
+        # Generate BEV on GPU and keep it there
+        gpu_bev_image = get_BEV_image_gpu(
+            image_data, 
+            self.H, 
+            (self.patch_size_px, self.patch_size_px), 
+            (7, 12),
+            logger=self.get_logger(),
+            return_gpu=True  # Keep on GPU!
+        )
+        
         t1 = time.time()
-        # Debug the BEV image
-        self.get_logger().info(f"BEV image type: {type(bev_image)}")
-        self.get_logger().info(f"BEV image shape: {bev_image.shape if hasattr(bev_image, 'shape') else 'NO SHAPE'}")
-        self.get_logger().info(f"BEV image dtype: {bev_image.dtype if hasattr(bev_image, 'dtype') else 'NO DTYPE'}")
-        ros_image = self.bridge.cv2_to_imgmsg(bev_image, encoding="bgr8")
+        
+        # Publish BEV image for visualization (needs CPU version)
+        bev_cpu = gpu_bev_image.download()
+        ros_image = self.bridge.cv2_to_imgmsg(bev_cpu, encoding="bgr8")
         self.bev_img_publisher.publish(ros_image)
-
-        # Get terrain preferred costmap
-        terrain_costmap = self.get_terrain_preferred_costmap(bev_image, self.patch_size_px)
+        
+        # Get terrain preferred costmap (GPU pipeline)
+        terrain_costmap = self.get_terrain_preferred_costmap_gpu(gpu_bev_image, self.patch_size_px)
+        
         t2 = time.time()
-        self.get_logger().info(f"BEV generation: {(t1-start)*1000:.2f}ms")
-        self.get_logger().info(f"Costmap inference: {(t2-t1)*1000:.2f}ms")
-        # self.get_logger().info(f"Costmap:\n{terrain_costmap}")
-
+        
+        self.get_logger().info(f"BEV generation (GPU): {(t1-start)*1000:.2f}ms")
+        self.get_logger().info(f"Costmap inference (GPU): {(t2-t1)*1000:.2f}ms")
+        
         # TODO: Bug that the costmap is flipped horizontally
         terrain_costmap = np.fliplr(terrain_costmap)
 
@@ -181,16 +195,13 @@ class LocalCostmapBuilder(Node):
             0, -self.base_link_offset_m, self.patch_size_m, terrain_costmap
         )
 
-        # Rotate the costmap by the yaw angle
+        # Rotate the costmap
         rotated_data = LocalCostmapHelper.rotate_costmap(data_2d, np.degrees(self.yaw_angle) - 90)
         rotated_data = np.array(rotated_data).flatten()
 
-        # Keep the highest cost when stitching the local costmap
+        # Publish
         msg = self.occupany_grid_msg
         msg.data = rotated_data.tolist()
-        # msg.data = np.maximum(msg.data, rotated_data).tolist()
-
-        # Publish message
         self.sterling_patern_costmap_publisher.publish(msg)
 
 
