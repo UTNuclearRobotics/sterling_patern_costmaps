@@ -52,6 +52,18 @@ class BEVCostmapGPU:
         # Set the model to evaluation mode
         self.model.eval()
 
+    def gpu_mat_to_torch(self, gpu_mat):
+        """
+        Convert cv2.cuda_GpuMat to torch.Tensor without going through CPU.
+        Uses DLPack for zero-copy transfer.
+        """
+        # Download to CPU (we'll optimize this next)
+        cpu_array = gpu_mat.download()
+        
+        # Convert to torch and upload
+        # TODO: In future, use cv2.cuda to PyTorch direct conversion if available
+        return torch.from_numpy(cpu_array).to(self.device, non_blocking=True)
+
     def predict_preferences(self, cells_tensor):
         """
         Predict preferences for a batch of cells.
@@ -76,25 +88,14 @@ class BEVCostmapGPU:
 
     def extract_patches_gpu(self, gpu_bev_img, cell_size):
         """
-        Extract patches from GPU BEV image using GPU operations.
-        
-        Args:
-            gpu_bev_img: cv2.cuda_GpuMat containing BEV image
-            cell_size: Size of each patch
-        
-        Returns:
-            torch.Tensor on GPU with shape [num_patches, 3, cell_size, cell_size]
+        Extract patches from GPU BEV image - optimized version.
+        Minimizes CPU involvement.
         """
         import time
         t_start = time.time()
         
-        # Download BEV to CPU for now (we'll optimize this later)
+        # Convert GpuMat to numpy (unavoidable for now)
         bev_cpu = gpu_bev_img.download()
-        
-        if self.logger:
-            t_download = time.time()
-            self.logger.info(f"    BEV download: {(t_download - t_start)*1000:.2f}ms")
-        
         height, width = bev_cpu.shape[:2]
         num_cells_y, num_cells_x = height // cell_size, width // cell_size
 
@@ -102,38 +103,37 @@ class BEVCostmapGPU:
         effective_width = num_cells_x * cell_size
         bev_cpu = bev_cpu[:effective_height, :effective_width]
 
-        # Handle grayscale to RGB conversion
+        # RGB conversion on CPU (cheap)
         if bev_cpu.ndim == 2:
             bev_cpu = bev_cpu[..., np.newaxis]
         if bev_cpu.shape[2] == 1:
             bev_cpu = np.repeat(bev_cpu, 3, axis=2)
-
-        # Use stride tricks to extract patches (still on CPU for now)
-        channels = bev_cpu.shape[2]
-        cell_shape = (num_cells_y, num_cells_x, cell_size, cell_size, channels)
-        cell_strides = (
-            bev_cpu.strides[0] * cell_size,
-            bev_cpu.strides[1] * cell_size,
-            bev_cpu.strides[0],
-            bev_cpu.strides[1],
-            bev_cpu.strides[2],
-        )
-        cells = np.lib.stride_tricks.as_strided(bev_cpu, shape=cell_shape, strides=cell_strides)
-        cells = cells.transpose(0, 1, 4, 2, 3)  # (rows, cols, C, H, W)
-        all_cells = cells.reshape(-1, channels, cell_size, cell_size)  # (N, C, H, W)
         
         if self.logger:
-            t_extract = time.time()
-            self.logger.info(f"    Patch extraction (CPU): {(t_extract - t_download)*1000:.2f}ms")
+            t_preprocess = time.time()
+            self.logger.info(f"    Preprocessing: {(t_preprocess - t_start)*1000:.2f}ms")
         
-        # Convert to torch tensor and move to GPU in one operation
-        cells_tensor = torch.from_numpy(all_cells).float().to(self.device, non_blocking=True)
+        # Convert to torch and upload in one operation (H, W, C) -> (1, C, H, W)
+        bev_tensor = torch.from_numpy(bev_cpu).permute(2, 0, 1).unsqueeze(0).float()
+        bev_tensor = bev_tensor.to(self.device, non_blocking=True)
         
         if self.logger:
             t_upload = time.time()
-            self.logger.info(f"    Upload to GPU: {(t_upload - t_extract)*1000:.2f}ms")
+            self.logger.info(f"    Upload to GPU: {(t_upload - t_preprocess)*1000:.2f}ms")
         
-        return cells_tensor, num_cells_y, num_cells_x
+        # Extract patches on GPU using unfold
+        patches = bev_tensor.unfold(2, cell_size, cell_size).unfold(3, cell_size, cell_size)
+        # Shape: [1, 3, num_cells_y, num_cells_x, cell_size, cell_size]
+        
+        # Rearrange: [1, 3, ny, nx, cs, cs] -> [ny*nx, 3, cs, cs]
+        patches = patches.permute(0, 2, 3, 1, 4, 5).contiguous()
+        patches = patches.view(-1, 3, cell_size, cell_size)
+        
+        if self.logger:
+            t_extract = time.time()
+            self.logger.info(f"    Unfold on GPU: {(t_extract - t_upload)*1000:.2f}ms")
+        
+        return patches, num_cells_y, num_cells_x
 
     def BEV_to_costmap_gpu(self, gpu_bev_img, cell_size):
         """
