@@ -149,13 +149,13 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
     # Single GPU remap operation
     gpu_output = cv2.cuda_GpuMat()
     cv2.cuda.remap(
-        src=gpu_img,
-        map1=gpu_map_x,
-        map2=gpu_map_y,
-        interpolation=cv2.INTER_LINEAR,
-        dst=gpu_output,
-        borderMode=cv2.BORDER_CONSTANT,
-        borderValue=(0, 0, 0)
+        gpu_img,              # src
+        gpu_map_x,            # xmap  
+        gpu_map_y,            # ymap
+        cv2.INTER_LINEAR,     # interpolation
+        gpu_output,           # dst
+        cv2.BORDER_CONSTANT,  # borderMode
+        (0, 0, 0, 0)          # borderValue as 4-tuple
     )
     
     # Download result
