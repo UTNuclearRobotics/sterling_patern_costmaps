@@ -104,7 +104,7 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
     )
     
     # Download result
-    stitched_cpu = stitched_gpu.download()
+    stitched_cpu = np.array(stitched_gpu.download())
 
     if visualize:
         # Visualization code same as before
