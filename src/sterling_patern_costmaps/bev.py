@@ -126,8 +126,18 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
     transformed = transformed.squeeze(-1)  # (H, W, 3)
     
     # Convert from homogeneous to Cartesian
-    map_x = transformed[:, :, 0] / transformed[:, :, 2]
-    map_y = transformed[:, :, 1] / transformed[:, :, 2]
+    map_x = (transformed[:, :, 0] / transformed[:, :, 2]).astype(np.float32)
+    map_y = (transformed[:, :, 1] / transformed[:, :, 2]).astype(np.float32)
+
+    # Ensure they're single-channel and contiguous
+    map_x = np.ascontiguousarray(map_x)
+    map_y = np.ascontiguousarray(map_y)
+
+    # Debug: verify shapes and types
+    print(f"map_x shape: {map_x.shape}, dtype: {map_x.dtype}")
+    print(f"map_y shape: {map_y.shape}, dtype: {map_y.dtype}")
+    print(f"map_x contiguous: {map_x.flags['C_CONTIGUOUS']}")
+    print(f"map_y contiguous: {map_y.flags['C_CONTIGUOUS']}")
     
     # Upload everything to GPU
     gpu_img = cv2.cuda_GpuMat()
@@ -138,6 +148,9 @@ def get_BEV_image_gpu(image, H, patch_size=(128, 128), grid_size=(7, 12), visual
     
     gpu_map_y = cv2.cuda_GpuMat()
     gpu_map_y.upload(map_y)
+
+    print(f"gpu_map_x size: {gpu_map_x.size()}, channels: {gpu_map_x.channels()}")
+    print(f"gpu_map_y size: {gpu_map_y.size()}, channels: {gpu_map_y.channels()}")
     
     # Single GPU remap operation
     gpu_output = cv2.cuda_GpuMat()
